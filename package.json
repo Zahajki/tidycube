@@ -1,0 +1,37 @@
+{
+  "name": "visualcube",
+  "version": "0.0.0",
+  "description": "A JavaScript library for generating Rubik's Cube visualisations",
+  "main": "dist/index.js",
+  "types": "dist/types/index.d.ts",
+  "scripts": {
+    "prepublish": "tsc",
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Zahajki/visualcube-js.git"
+  },
+  "keywords": [
+    "rubik's cube"
+  ],
+  "author": "Zahajki",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Zahajki/visualcube-js/issues"
+  },
+  "homepage": "https://github.com/Zahajki/visualcube-js#readme",
+  "devDependencies": {
+    "@types/jsdom": "^11.0.4",
+    "@types/lodash": "^4.14.86",
+    "typescript": "^2.6.2"
+  },
+  "dependencies": {
+    "jsdom": "^11.5.1",
+    "lodash": "^4.17.4"
+  },
+  "browser": {
+    "jsdom": false
+  }
+}
