@@ -23,11 +23,13 @@
   },
   "homepage": "https://github.com/Zahajki/visualcube-js#readme",
   "devDependencies": {
+    "@types/color": "^2.0.0",
     "@types/jsdom": "^11.0.4",
     "@types/lodash": "^4.14.86",
     "typescript": "^2.6.2"
   },
   "dependencies": {
+    "color": "^2.0.1",
     "jsdom": "^11.5.1",
     "lodash": "^4.17.4"
   },
