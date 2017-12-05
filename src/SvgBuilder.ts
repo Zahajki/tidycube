@@ -57,8 +57,14 @@ export class FluentSVGElement {
     return this
   }
 
-  append (child: FluentSVGElement): void {
-    this.nativeElement.appendChild(child.nativeElement)
+  append (children: FluentSVGElement | FluentSVGElement[]): void {
+    if (children instanceof Array) {
+      children.forEach(child => {
+        this.nativeElement.appendChild(child.nativeElement)
+      })
+    } else {
+      this.nativeElement.appendChild(children.nativeElement)
+    }
   }
 
   g (attributes: object = {}): FluentSVGElement {

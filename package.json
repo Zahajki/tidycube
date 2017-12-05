@@ -5,6 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/types/index.d.ts",
   "scripts": {
+    "lint": "tslint 'src/**/*.ts'",
     "prepublish": "tsc",
     "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
@@ -33,7 +34,8 @@
   "dependencies": {
     "color": "^2.0.1",
     "jsdom": "^11.5.1",
-    "lodash": "^4.17.4"
+    "lodash": "^4.17.4",
+    "monotone-convex-hull-2d": "^1.0.1"
   },
   "browser": {
     "jsdom": false

@@ -1,129 +1,13 @@
 import SvgBuilder, { FluentSVGSVGElement, FluentSVGElement } from './SvgBuilder'
+import { Rotation, Point, Axis } from './Geometry'
+import { Face, GeometricCube } from './GeometricCube'
 import * as Color from 'color'
-import { read } from 'fs';
-import { relative } from 'path';
 
-export enum Axis {
-  X = 0, Y, Z
-}
-
-export class Rotation {
-  constructor (public axis: Axis, private degree: number) {}
-
-  get radian (): number {
-    const deg = (this.degree % 360 + 360) % 360
-    return Math.PI * deg / 180
-  }
-}
-
-class Rectangle {
+export class Rectangle {
   constructor (public x: number, public y: number, public width: number, public height: number) {}
 
   toString (): string {
     return [this.x, this.y, this.width, this.height].join(' ')
-  }
-}
-
-enum Face {
-  U = 0, R, F, D, L, B
-}
-
-class Point {
-  constructor (public x: number, public y: number, public z: number) {}
-
-  clone (): Point {
-    return new Point(this.x, this.y, this.z)
-  }
-
-  translate (delta: Point): Point {
-    this.x += delta.x
-    this.y += delta.y
-    this.z += delta.z
-    return this
-  }
-
-  scale (factor: number, center: Point | undefined = undefined): Point {
-    if (!center) {
-      this.x *= factor
-      this.y *= factor
-      this.z *= factor
-    } else {
-      const iv = center.clone().invert()
-      this.translate(iv).scale(factor).translate(center)
-    }
-    return this
-  }
-
-  rotate (rotation: Rotation): Point {
-    const tmp = this.clone()
-    const r = rotation.radian
-    switch (rotation.axis)
-    {
-      case Axis.X:
-        tmp.z = this.z * Math.cos(r) - this.y * Math.sin(r)
-        tmp.y = this.z * Math.sin(r) + this.y * Math.cos(r)
-        break
-      case Axis.Y:
-        tmp.x = this.x * Math.cos(r) + this.z * Math.sin(r)
-        tmp.z = -this.x * Math.sin(r) + this.z * Math.cos(r)
-        break
-      case Axis.Z:
-        tmp.x = this.x * Math.cos(r) - this.y * Math.sin(r)
-        tmp.y = this.x * Math.sin(r) + this.y * Math.cos(r)
-        break
-    }
-    this.x = tmp.x
-    this.y = tmp.y
-    this.z = tmp.z
-    return this
-  }
-
-  project (distance: number): Point {
-    const tmp = this.clone()
-    this.x = tmp.x * distance / tmp.z
-    this.y = tmp.y * distance / tmp.z
-    // Maintain z coordinate to allow use of rendering tricks
-    return this
-  }
-
-  private invert (): Point {
-    this.x *= -1
-    this.y *= -1
-    this.z *= -1
-    return this
-  }
-}
-
-export interface FaceContainer<T> {
-  u: T
-  r: T
-  f: T
-  d: T
-  l: T
-  b: T
-}
-
-export interface FaceletContainer<T> extends FaceContainer<T[][]> {}
-
-class FaceletPoints implements FaceletContainer<Point> {
-  u: Point[][]
-  r: Point[][]
-  f: Point[][]
-  d: Point[][]
-  l: Point[][]
-  b: Point[][]
-  constructor (public dimension: number) {
-    const t = new Point(-dimension / 2, -dimension / 2, -dimension / 2)
-    for (let i = 0; i <= dimension; i++) {
-      for (let j = 0; j <= dimension; j++) {
-        this.u[i][j] = new Point(i, 0, dimension - j).translate(t).scale(1 / dimension)
-        this.r[i][j] = new Point(dimension, j, i).translate(t)
-        this.f[i][j] = new Point(i, j, 0).translate(t)
-        this.d[i][j] = new Point(i, dimension, j).translate(t)
-        this.l[i][j] = new Point(0, j, dimension - i).translate(t)
-        this.b[i][j] = new Point(dimension - i, j, dimension).translate(t)
-      }
-    }
   }
 }
 
@@ -132,7 +16,8 @@ export type Options = {
   backgroundColor?: Color,
   cubeColor?: Color,
   view?: 'normal' | 'plan',
-  cubeRotations?: Rotation[]
+  cubeRotations?: Rotation[],
+  distance?: 5,
   arrows?: any
 }
 
@@ -142,17 +27,21 @@ export default class SvgCubeVisualizer {
   private cubeColor: Color
   private view: 'normal' | 'plan'
   private cubeRotations: Rotation[]
+  private distance: number
   private arrows: any[]
+
+  private geometricCube: GeometricCube
 
   constructor (
     private dimension: number,
-    private faceletColors: FaceletContainer<Color>,
+    private faceletColors: Color[][][],
     {
       size= 128,
       backgroundColor= undefined,
       cubeColor= Color('black'),
       view= 'normal',
-      cubeRotations= [],
+      cubeRotations= [{ axis: Axis.Y, angle: 45 }, { axis: Axis.X, angle: -34 }],
+      distance= 5,
       arrows= []
     }: Options = {}
   ) {
@@ -161,15 +50,25 @@ export default class SvgCubeVisualizer {
     this.cubeColor = cubeColor
     this.view = view
     this.cubeRotations = cubeRotations
+    this.distance = distance
     this.arrows = arrows
+
+    this.geometricCube = new GeometricCube(this.dimension, this.cubeRotations, this.distance)
   }
 
   visualize (): FluentSVGSVGElement {
     const viewBox = new Rectangle(-0.9, -0.9, 1.8, 1.8)
     const strokeWidth = 0
 
-    const rotationVector: any[] = []
-    const renderOrder: any[] = []
+    const rotationVector: Point[] = [
+      new Point(0, -1, 0),
+      new Point(1, 0, 0),
+      new Point(0, 0, -1),
+      new Point(0, 1, 0),
+      new Point(-1, 0, 0),
+      new Point(0, 0, 1)
+    ]
+    const renderOrder = this.geometricCube.renderOrder()
 
     const svg = SvgBuilder.create(this.size, this.size, viewBox + '')
 
@@ -193,9 +92,9 @@ export default class SvgCubeVisualizer {
         strokeWidth,
         strokeLinejoin: 'round'
       })
-      for (let i = 0; i < 3; i++) {
-        g.append(this.shapeFacelets(renderOrder[i]))
-      }
+      renderOrder.slice(0, 3).forEach(face => {
+        g.append(this.composeFace(face))
+      })
 
       // Create outline for each background face (transparency only)
       g = svg.g().styles({
@@ -204,7 +103,7 @@ export default class SvgCubeVisualizer {
         opacity: this.cubeColor.alpha()
       })
       for (let i = 0; i < 3; i++) {
-        g.append(this.shapeSilhouette(renderOrder[i]))
+        g.append(this.composeSilhouette(renderOrder[i]))
       }
     }
 
@@ -216,7 +115,7 @@ export default class SvgCubeVisualizer {
     })
     for (let i = 3; i < 6; i++) {
       if (this.isFaceVisible(renderOrder[i], rotationVector) || this.cubeColor.alpha() < 1) {
-        g.append(this.shapeSilhouette(renderOrder[i]))
+        g.append(this.composeSilhouette(renderOrder[i]))
       }
     }
 
@@ -229,7 +128,7 @@ export default class SvgCubeVisualizer {
     })
     for (let i = 3; i < 6; i++) {
       if (this.isFaceVisible(renderOrder[i], rotationVector) || this.cubeColor.alpha() < 1) {
-        g.append(this.shapeFacelets(renderOrder[i]))
+        g.append(this.composeFace(renderOrder[i]))
       }
     }
 
@@ -242,7 +141,7 @@ export default class SvgCubeVisualizer {
         strokeLinejoin: 'round'
       })
       for (let face of [Face.F, Face.L, Face.B, Face.R]) {
-        g.append(this.shapeLastlayer(face))
+        g.append(this.composeLastlayer(face))
       }
     }
 
@@ -256,26 +155,48 @@ export default class SvgCubeVisualizer {
         strokeLinejoin: 'round'
       })
       for (let i = 0; i < this.arrows.length; i++) {
-        g.append(this.shapeArrows(i))
+        g.append(this.composeArrows(i))
       }
     }
 
     return svg
   }
 
-  private shapeFacelets (face: number): FluentSVGElement {
+  private composeFace (face: Face): FluentSVGElement[] {
+    const result = []
+    for (let j = 0; j < this.dimension; j++) {
+      for (let i = 0; i < this.dimension; i ++) {
+        result.push(this.composeFacelet(face, i, j, this.faceletColors[face][i][j]))
+      }
+    }
+    return result
+  }
+
+  private composeFacelet (face: Face, i: number, j: number, color: Color): FluentSVGElement {
+    const center = this.geometricCube.centerOfFacelet(face, i, j)
+    // Scale points in towards centre
+    const p1 = this.geometricCube[face][i][j].clone().scale(0.85, center)
+    const p2 = this.geometricCube[face][i + 1][j].clone().scale(0.85, center)
+    const p3 = this.geometricCube[face][i + 1][j + 1].clone().scale(0.85, center)
+    const p4 = this.geometricCube[face][i][j + 1].clone().scale(0.85, center)
+    return new FluentSVGElement('polygon')
+      .attributes({
+        fill: color.hex(),
+        stroke: this.cubeColor.hex(),
+        opacity: color.alpha(),
+        points: [p1, p2, p3, p4].map(p => p.to2dString()).join(' ')
+      })
+  }
+
+  private composeSilhouette (face: Face): FluentSVGElement {
     return new FluentSVGElement('polygon')
   }
 
-  private shapeSilhouette (face: number): FluentSVGElement {
+  private composeLastlayer (face: Face): FluentSVGElement {
     return new FluentSVGElement('polygon')
   }
 
-  private shapeLastlayer (face: Face): FluentSVGElement {
-    return new FluentSVGElement('polygon')
-  }
-
-  private shapeArrows (face: number): FluentSVGElement {
+  private composeArrows (face: number): FluentSVGElement {
     return new FluentSVGElement('path')
   }
 
