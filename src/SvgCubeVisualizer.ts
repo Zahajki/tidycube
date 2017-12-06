@@ -30,7 +30,7 @@ export default class SvgCubeVisualizer {
   private distance: number
   private arrows: any[]
 
-  private geometricCube: GeometricCube
+  private cube: GeometricCube
 
   constructor (
     private dimension: number,
@@ -40,7 +40,7 @@ export default class SvgCubeVisualizer {
       backgroundColor= undefined,
       cubeColor= Color('black'),
       view= 'normal',
-      cubeRotations= [{ axis: Axis.Y, angle: 45 }, { axis: Axis.X, angle: -34 }],
+      cubeRotations= [{ axis: Axis.Y, angle: 30 }, { axis: Axis.X, angle: -25 }],
       distance= 5,
       arrows= []
     }: Options = {}
@@ -53,7 +53,16 @@ export default class SvgCubeVisualizer {
     this.distance = distance
     this.arrows = arrows
 
-    this.geometricCube = new GeometricCube(this.dimension, this.cubeRotations, this.distance)
+    this.cube = new GeometricCube(this.dimension, this.cubeRotations, this.distance)
+
+    this.cube.forEach(point => {
+      // Rotate cube as per perameter settings
+      this.cubeRotations.forEach(rot => {
+        point.rotate(rot)
+      })
+      // Finally project the 3D points onto 2D
+      point.project(distance)
+    })
   }
 
   visualize (): FluentSVGSVGElement {
@@ -68,7 +77,7 @@ export default class SvgCubeVisualizer {
       new Point(-1, 0, 0),
       new Point(0, 0, 1)
     ]
-    const renderOrder = this.geometricCube.renderOrder()
+    const renderOrder = this.cube.renderOrder()
 
     const svg = SvgBuilder.create(this.size, this.size, viewBox + '')
 
@@ -95,29 +104,15 @@ export default class SvgCubeVisualizer {
       renderOrder.slice(0, 3).forEach(face => {
         g.append(this.composeFace(face))
       })
-
-      // Create outline for each background face (transparency only)
-      g = svg.g().styles({
-        strokeWidth: 0.1,
-        strokeLinejoin: 'round',
-        opacity: this.cubeColor.alpha()
-      })
-      for (let i = 0; i < 3; i++) {
-        g.append(this.composeSilhouette(renderOrder[i]))
-      }
     }
 
-    // Create outline for each visible face
+    // Create outline
     let g = svg.g().styles({
       strokeWidth: 0.1,
       strokeLinejoin: 'round',
       opacity: this.cubeColor.alpha()
     })
-    for (let i = 3; i < 6; i++) {
-      if (this.isFaceVisible(renderOrder[i], rotationVector) || this.cubeColor.alpha() < 1) {
-        g.append(this.composeSilhouette(renderOrder[i]))
-      }
-    }
+    g.append(this.composeBody())
 
     // Create polygon for each visible facelet
     g = svg.g().styles({
@@ -173,23 +168,25 @@ export default class SvgCubeVisualizer {
   }
 
   private composeFacelet (face: Face, i: number, j: number, color: Color): FluentSVGElement {
-    const center = this.geometricCube.centerOfFacelet(face, i, j)
     // Scale points in towards centre
-    const p1 = this.geometricCube[face][i][j].clone().scale(0.85, center)
-    const p2 = this.geometricCube[face][i + 1][j].clone().scale(0.85, center)
-    const p3 = this.geometricCube[face][i + 1][j + 1].clone().scale(0.85, center)
-    const p4 = this.geometricCube[face][i][j + 1].clone().scale(0.85, center)
+    const points = this.cube.faces[face].facelets[i][j].points
+      .map(p => p.to2dString()).join(' ')
     return new FluentSVGElement('polygon')
       .attributes({
         fill: color.hex(),
         stroke: this.cubeColor.hex(),
         opacity: color.alpha(),
-        points: [p1, p2, p3, p4].map(p => p.to2dString()).join(' ')
+        points
       })
   }
 
-  private composeSilhouette (face: Face): FluentSVGElement {
+  private composeBody (): FluentSVGElement {
     return new FluentSVGElement('polygon')
+      .attributes({
+        fill: this.cubeColor.hex(),
+        stroke: this.cubeColor.hex(),
+        points: this.cube.convexHull().map(p => p.to2dString()).join(' ')
+      })
   }
 
   private composeLastlayer (face: Face): FluentSVGElement {

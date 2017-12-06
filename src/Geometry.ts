@@ -72,8 +72,8 @@ export class Point {
 
   project (distance: number): Point {
     const old = this.clone()
-    this.x = old.x * distance / old.z
-    this.y = old.y * distance / old.z
+    this.x = old.x * distance / (old.z + distance)
+    this.y = old.y * distance / (old.z + distance)
     // Maintain z coordinate to allow use of rendering tricks
     return this
   }
