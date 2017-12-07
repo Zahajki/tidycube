@@ -1,13 +1,10 @@
 import { Rotation, Point, Axis } from './Geometry'
-import { port } from '_debugger'
-import * as _ from 'lodash'
-const convexHull: (points: number[][]) => number[] = require('monotone-convex-hull-2d')
+import flatten = require('lodash/flatten')
+const convexHull: (points: [number, number][]) => number[] = require('monotone-convex-hull-2d')
 
 namespace Util {
   export function forEachFace (callbackfn: (face: Face) => void): void {
-    for (let face = Face.U; face <= Face.B; face++) {
-      callbackfn(face)
-    }
+    times(6, callbackfn)
   }
 
   export function times (n: number, callbackfn: (i: number) => void): void {
@@ -30,16 +27,12 @@ export enum Face {
 }
 
 export class GeometricFacelet {
-  points: Point[]
+  points: Point[] = []
 
   constructor (dimension: number, i: number, j: number) {
-    const i_ = i + 1
-    const j_ = j + 1
-
-    this.points = []
-    this.points[0] = new Point(i, 0, dimension - j_)
-    this.points[1] = new Point(i_, 0, dimension - j_)
-    this.points[2] = new Point(i_, 0, dimension - j)
+    this.points[0] = new Point(i, 0, dimension - (j + 1))
+    this.points[1] = new Point(i + 1, 0, dimension - (j + 1))
+    this.points[2] = new Point(i + 1, 0, dimension - j)
     this.points[3] = new Point(i, 0, dimension - j)
 
     const center = Point.mid(this.points[0], this.points[2])
@@ -48,23 +41,21 @@ export class GeometricFacelet {
 }
 
 export class GeometricFace {
-  points: Point[]
+  [i: number]: GeometricFacelet[]
 
-  facelets: GeometricFacelet[][]
+  points: Point[] = []
 
   constructor (dimension: number, face: Face) {
-    this.points = []
     this.points[0] = new Point(0, 0, dimension)
     this.points[1] = new Point(dimension, 0, dimension)
     this.points[2] = new Point(dimension, 0, 0)
     this.points[3] = new Point(0, 0, 0)
     this.points.forEach(p => GeometricFace.transformToFace(p, dimension, face))
 
-    this.facelets = []
-    Util.times(dimension, i => { this.facelets[i] = [] })
+    Util.times(dimension, i => { this[i] = [] })
     Util.squareTimes(dimension, (i, j) => {
-      this.facelets[i][j] = new GeometricFacelet(dimension, i, j)
-      this.facelets[i][j].points.forEach(p => GeometricFace.transformToFace(p, dimension, face))
+      this[i][j] = new GeometricFacelet(dimension, i, j)
+      this[i][j].points.forEach(p => GeometricFace.transformToFace(p, dimension, face))
     })
   }
 
@@ -109,12 +100,11 @@ export class GeometricFace {
 }
 
 export class GeometricCube {
-  faces: GeometricFace[]
+  [face: number]: GeometricFace
 
   constructor (public dimension: number, rotations: Rotation[], distance: number) {
-    this.faces = []
     Util.forEachFace(face => {
-      this.faces[face] = new GeometricFace(dimension, face)
+      this[face] = new GeometricFace(dimension, face)
     })
 
     // Translation vector to centre the cube
@@ -123,32 +113,38 @@ export class GeometricCube {
       // Now scale and tranform point to ensure size/pos independent of dim
       point.translate(t).scale(1 / dimension)
     })
-  }
 
-  forEach (callbackfn: (p: Point) => void): void {
-    Util.forEachFace(face => {
-      this.faces[face].points.forEach(callbackfn)
-      Util.squareTimes(this.dimension, (i , j) => {
-        this.faces[face].facelets[i][j].points.forEach(callbackfn)
+    this.forEach(point => {
+      // Rotate cube as per perameter settings
+      rotations.forEach(rot => {
+        point.rotate(rot)
       })
+      // Finally project the 3D points onto 2D
+      point.project(distance)
     })
   }
 
   renderOrder (): Face[] {
-    const arr = [Face.U, Face.R, Face.F, Face.D, Face.L, Face.B]
-    arr.sort((a, b) => {
-      return this.faces[b].center().z - this.faces[a].center().z
+    const faces = [Face.U, Face.R, Face.F, Face.D, Face.L, Face.B]
+    faces.sort((a, b) => {
+      return this[b].center().z - this[a].center().z
     })
-    return arr
+    return faces
   }
 
-  convexHull (): Point[] {
-    const n = this.dimension
-    const points = _.flatten(this.faces.map(geoFace => geoFace.points))
-    const result: Point[] = []
-    convexHull(points.map(p => p.to2dArray())).forEach((index) => {
-      result.push(points[index])
+  silhouette (): Point[] {
+    const faces = [Face.U, Face.R, Face.F, Face.D, Face.L, Face.B]
+    const points = flatten(faces.map(face => this[face].points))
+    return convexHull(points.map(p => p.to2dArray()))
+      .map(index => points[index])
+  }
+
+  private forEach (callbackfn: (p: Point) => void): void {
+    Util.forEachFace(face => {
+      this[face].points.forEach(callbackfn)
+      Util.squareTimes(this.dimension, (i , j) => {
+        this[face][i][j].points.forEach(callbackfn)
+      })
     })
-    return result
   }
 }

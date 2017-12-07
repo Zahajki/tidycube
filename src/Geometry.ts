@@ -13,7 +13,7 @@ namespace Degree {
 }
 
 export interface Rotation {
-  axis: Axis | keyof typeof Axis
+  axis: Axis
   angle: number
 }
 
@@ -35,7 +35,7 @@ export class Point {
     return this
   }
 
-  scale (factor: number, center: Point | undefined = undefined): Point {
+  scale (factor: number, center?: Point): Point {
     if (!center) {
       this.x *= factor
       this.y *= factor
@@ -52,17 +52,14 @@ export class Point {
     const deg = rotation.angle
     switch (rotation.axis) {
       case Axis.X:
-      case Axis[Axis.X]:
         this.z = old.z * Degree.cos(deg) - old.y * Degree.sin(deg)
         this.y = old.z * Degree.sin(deg) + old.y * Degree.cos(deg)
         break
       case Axis.Y:
-      case Axis[Axis.Y]:
         this.x = old.x * Degree.cos(deg) + old.z * Degree.sin(deg)
         this.z = -old.x * Degree.sin(deg) + old.z * Degree.cos(deg)
         break
       case Axis.Z:
-      case Axis[Axis.Z]:
         this.x = old.x * Degree.cos(deg) - old.y * Degree.sin(deg)
         this.y = old.x * Degree.sin(deg) + old.y * Degree.cos(deg)
         break
@@ -71,14 +68,16 @@ export class Point {
   }
 
   project (distance: number): Point {
-    const old = this.clone()
-    this.x = old.x * distance / (old.z + distance)
-    this.y = old.y * distance / (old.z + distance)
-    // Maintain z coordinate to allow use of rendering tricks
+    if (distance !== Infinity) {
+      const old = this.clone()
+      this.x = old.x * distance / (old.z + distance)
+      this.y = old.y * distance / (old.z + distance)
+      // Maintain z coordinate to allow use of rendering tricks
+    }
     return this
   }
 
-  to2dArray (): number[] {
+  to2dArray (): [number, number] {
     return [this.x, this.y]
   }
 

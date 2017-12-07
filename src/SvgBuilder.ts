@@ -1,10 +1,11 @@
 import { JSDOM } from 'jsdom'
-import * as _ from 'lodash'
+import kebabCase = require('lodash/kebabCase')
+
+const namespaceURI: string = 'http://www.w3.org/2000/svg'
 
 namespace Doc {
-  export const namespaceURI: string = 'http://www.w3.org/2000/svg'
-
   const doc: Document =
+    // tslint:disable-next-line:strict-type-predicates
     typeof window !== 'undefined' ? window.document : (new JSDOM()).window.document
 
   export function createElement (name: string): Element {
@@ -13,34 +14,33 @@ namespace Doc {
 }
 
 export default class SvgBuilder {
-  static create (width: number, height: number, viewBox: string): FluentSVGSVGElement {
-    const svg = new FluentSVGSVGElement('svg')
+  static create (width: number, height: number, viewBox: string): HandySVGSVGElement {
+    // tslint:disable-next-line:no-use-before-declare
+    const svg = new HandySVGSVGElement('svg')
     svg.attributes({
       version: 1.1,
-      xmlns: Doc.namespaceURI,
+      xmlns: namespaceURI,
       width: width,
       height: height,
       viewBox: viewBox
     })
     return svg
   }
+
+  static element (name: string): HandySVGElement {
+    // tslint:disable-next-line:no-use-before-declare
+    return new HandySVGElement(name)
+  }
 }
 
-export class FluentSVGElement {
+export class HandySVGElement {
   protected nativeElement: Element
 
   constructor (name: string) {
     this.nativeElement = Doc.createElement(name)
   }
 
-  element (name: string, attributes: object = {}): FluentSVGElement {
-    const child = new FluentSVGElement(name)
-    this.nativeElement.appendChild(child.nativeElement)
-    child.attributes(attributes)
-    return child
-  }
-
-  attributes (attributes: any): FluentSVGElement {
+  attributes (attributes: any): this {
     Object.keys(attributes).forEach(attrName => {
       if (attrName !== 'style') {
         this.nativeElement.setAttribute(attrName, attributes[attrName])
@@ -51,13 +51,13 @@ export class FluentSVGElement {
     return this
   }
 
-  styles (styles: any): FluentSVGElement {
-    const styleValue = Object.keys(styles).map(prop => _.kebabCase(prop) + ':' + styles[prop]).join(';')
+  styles (styles: any): this {
+    const styleValue = Object.keys(styles).map(prop => kebabCase(prop) + ':' + styles[prop]).join(';')
     this.nativeElement.setAttribute('style', styleValue)
     return this
   }
 
-  append (children: FluentSVGElement | FluentSVGElement[]): void {
+  append (children: HandySVGElement | HandySVGElement[]): this {
     if (children instanceof Array) {
       children.forEach(child => {
         this.nativeElement.appendChild(child.nativeElement)
@@ -65,26 +65,16 @@ export class FluentSVGElement {
     } else {
       this.nativeElement.appendChild(children.nativeElement)
     }
+    return this
   }
 
-  g (attributes: object = {}): FluentSVGElement {
-    return this.element('g', attributes)
-  }
-
-  rect (attributes: object = {}): FluentSVGElement {
-    return this.element('rect', attributes)
-  }
-
-  polygon (attributes: object = {}): FluentSVGElement {
-    return this.element('polygon', attributes)
-  }
-
-  path (attributes: object = {}): FluentSVGElement {
-    return this.element('path', attributes)
+  appendTo (target: HandySVGElement): this {
+    target.nativeElement.appendChild(this.nativeElement)
+    return this
   }
 }
 
-export class FluentSVGSVGElement extends FluentSVGElement {
+export class HandySVGSVGElement extends HandySVGElement {
   get xml (): string {
     return [
       '<?xml version="1.0" standalone="no"?>',
