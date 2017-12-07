@@ -1,6 +1,7 @@
 import SvgCubeVisualBuilder from './SvgCubeVisualizer'
-import { Axis } from './Geometry'
+import { Axis, Rotation } from './Geometry'
 import * as Color from 'color'
+const prettifyXml: (input: string, options?: {indent: number, newline: string}) => string = require('prettify-xml')
 import { writeFileSync } from 'fs'
 
 export default class VisualCube {
@@ -15,8 +16,8 @@ const faceletColors = [
   [['green', 'blue', 'green'], ['blue', 'green', 'blue'], ['green', 'blue', 'green']]
 ].map(face => face.map(row => row.map(name => Color(name))))
 
-const rotations = [{ axis: Axis.Y, angle: 30 }, { axis: Axis.X, angle: -25 }]
+const rotations: Rotation[] = []
 
 const svg = new SvgCubeVisualBuilder(3, rotations, 5)
-  .visualize(512, undefined, Color('black'), faceletColors, [])
-writeFileSync('test.svg', svg.xml)
+  .visualize(512, Color('rgba(0, 255, 255, 0.2)'), Color('black'), faceletColors, [])
+writeFileSync('test.svg', prettifyXml(svg.xml))

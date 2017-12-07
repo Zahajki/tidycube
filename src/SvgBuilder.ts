@@ -43,7 +43,8 @@ export class HandySVGElement {
   attributes (attributes: any): this {
     Object.keys(attributes).forEach(attrName => {
       if (attrName !== 'style') {
-        this.nativeElement.setAttribute(attrName, attributes[attrName])
+        const kebabAttrName = attrName === 'viewBox' ? attrName : kebabCase(attrName)
+        this.nativeElement.setAttribute(kebabAttrName, attributes[attrName])
       } else {
         this.styles(attributes[attrName])
       }
@@ -54,6 +55,11 @@ export class HandySVGElement {
   styles (styles: any): this {
     const styleValue = Object.keys(styles).map(prop => kebabCase(prop) + ':' + styles[prop]).join(';')
     this.nativeElement.setAttribute('style', styleValue)
+    return this
+  }
+
+  addClass (className: string): this {
+    this.nativeElement.setAttribute('class', className)
     return this
   }
 

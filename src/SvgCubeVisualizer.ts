@@ -39,7 +39,6 @@ export default class SvgCubeVisualizer {
     this.arrows = arrows
 
     const viewBox = new Rectangle(-0.9, -0.9, 1.8, 1.8)
-    const strokeWidth = 0
 
     const rotationVector: Point[] = [
       new Point(0, -1, 0),
@@ -52,12 +51,15 @@ export default class SvgCubeVisualizer {
     const renderOrder = this.cube.renderOrder()
 
     const svg = SvgBuilder.create(imageSize, imageSize, viewBox + '')
+      .addClass('visualcube')
 
     // Draw background
     if (backgroundColor) {
       SvgBuilder.element('rect')
+        .addClass('background')
         .attributes({
           fill: backgroundColor.hex(),
+          opacity: backgroundColor.alpha(),
           x: viewBox.x,
           y: viewBox.y,
           width: viewBox.width,
@@ -73,7 +75,6 @@ export default class SvgCubeVisualizer {
         .styles({
           // opacity: faceletOpacity / 100,
           strokeOpacity: 0.5,
-          strokeWidth,
           strokeLinejoin: 'round'
         })
         .appendTo(svg)
@@ -83,27 +84,12 @@ export default class SvgCubeVisualizer {
     }
 
     // Create outline
-    SvgBuilder.element('g')
-      .styles({
-        strokeWidth: 0.02,
-        strokeLinejoin: 'round',
-        opacity: this.cubeColor.alpha()
-      })
-      .append(this.composeBody())
-      .appendTo(svg)
+    this.composeBody().appendTo(svg)
 
     // Create polygon for each visible facelet
-    let g = SvgBuilder.element('g')
-      .styles({
-        // opacity: faceletOpacity / 100,
-        strokeOpacity: 1,
-        strokeWidth: strokeWidth,
-        strokeLinejoin: 'round'
-      })
-      .appendTo(svg)
     for (let i = 3; i < 6; i++) {
       if (this.isFaceVisible(renderOrder[i], rotationVector) || this.cubeColor.alpha() < 1) {
-        g.append(this.composeFace(renderOrder[i]))
+        svg.append(this.composeFace(renderOrder[i]))
       }
     }
 
@@ -123,7 +109,7 @@ export default class SvgCubeVisualizer {
     }
 
     // Draw Arrows
-    if (this.arrows) {
+    if (this.arrows.length > 0) {
       const arrowWidth = 0.12 / this.dimension
       let g = SvgBuilder.element('g')
         .styles({
@@ -141,24 +127,24 @@ export default class SvgCubeVisualizer {
     return svg
   }
 
-  private composeFace (face: Face): HandySVGElement[] {
-    const result = []
+  private composeFace (face: Face): HandySVGElement {
+    const polygons = []
     for (let j = 0; j < this.dimension; j++) {
       for (let i = 0; i < this.dimension; i ++) {
-        result.push(this.composeFacelet(face, i, j, this.faceletColors[face][i][j]))
+        polygons.push(this.composeFacelet(face, i, j, this.faceletColors[face][i][j]))
       }
     }
-    return result
+    return SvgBuilder.element('g').addClass('face').append(polygons)
   }
 
   private composeFacelet (face: Face, i: number, j: number, color: Color): HandySVGElement {
     // Scale points in towards centre
     const points = this.cube[face][i][j].points
       .map(p => p.to2dString()).join(' ')
-    return new HandySVGElement('polygon')
+    return SvgBuilder.element('polygon')
+      .addClass('facelet')
       .attributes({
         fill: color.hex(),
-        stroke: this.cubeColor.hex(),
         opacity: color.alpha(),
         points
       })
@@ -166,9 +152,14 @@ export default class SvgCubeVisualizer {
 
   private composeBody (): HandySVGElement {
     return new HandySVGElement('polygon')
+      .addClass('body')
       .attributes({
         fill: this.cubeColor.hex(),
+        opacity: this.cubeColor.alpha(),
         stroke: this.cubeColor.hex(),
+        strokeOpacity: this.cubeColor.alpha(),
+        strokeWidth: (1 - 0.85) / 3,
+        strokeLinejoin: 'round',
         points: this.cube.silhouette().map(p => p.to2dString()).join(' ')
       })
   }

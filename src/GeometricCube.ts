@@ -135,8 +135,14 @@ export class GeometricCube {
   silhouette (): Point[] {
     const faces = [Face.U, Face.R, Face.F, Face.D, Face.L, Face.B]
     const points = flatten(faces.map(face => this[face].points))
-    return convexHull(points.map(p => p.to2dArray()))
-      .map(index => points[index])
+    const approxPoints = points.map(p => {
+      const approx = p.clone()
+      approx.x = parseFloat(approx.x.toFixed(8))
+      approx.y = parseFloat(approx.y.toFixed(8))
+      return approx
+    })
+    const hull = convexHull(approxPoints.map(p => p.to2dArray()))
+    return hull.map(index => points[index])
   }
 
   private forEach (callbackfn: (p: Point) => void): void {

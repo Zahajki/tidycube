@@ -82,7 +82,7 @@ export class Point {
   }
 
   to2dString (): string {
-    return this.x + ',' + this.y
+    return this.x.toFixed(8) + ',' + this.y.toFixed(8)
   }
 
   private invert (): Point {
