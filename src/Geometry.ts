@@ -28,10 +28,22 @@ export class Point {
     return new Point(this.x, this.y, this.z)
   }
 
-  translate (delta: Point): Point {
-    this.x += delta.x
-    this.y += delta.y
-    this.z += delta.z
+  translate (delta: Point): Point
+  translate (x: number, y?: number, z?: number): Point
+  translate (deltaOrX: number | Point, y?: number, z?: number): Point {
+    if (typeof deltaOrX === 'number' && typeof y === 'number' && typeof z === 'number') {
+      this.x += deltaOrX
+      this.y += y
+      this.z += z
+    } else if (typeof deltaOrX === 'number' && typeof y === 'undefined') {
+      this.x += deltaOrX
+      this.y += deltaOrX
+      this.z += deltaOrX
+    } else if (typeof deltaOrX !== 'number') {
+      this.x += deltaOrX.x
+      this.y += deltaOrX.y
+      this.z += deltaOrX.z
+    }
     return this
   }
 

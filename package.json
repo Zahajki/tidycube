@@ -36,7 +36,6 @@
     "jsdom": "^11.5.1",
     "lodash": "^4.17.4",
     "monotone-convex-hull-2d": "^1.0.1",
-    "polygon-offset": "^0.3.1",
     "prettify-xml": "^1.2.0"
   },
   "browser": {

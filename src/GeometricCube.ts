@@ -22,6 +22,14 @@ namespace Util {
   }
 }
 
+const FACELET_SCALE = 0.85
+
+enum Corner {
+  URF = 0, UFL, ULB, UBR, DFR, DLF, DBL, DRB
+}
+enum Edge {
+  UR = 0, UF, UL, UB, DR, DF, DL, DB, FR, FL, BL, BR
+}
 export enum Face {
   U = 0, R, F, D, L, B
 }
@@ -36,7 +44,7 @@ export class GeometricFacelet {
     this.points[3] = new Point(i, 0, dimension - j)
 
     const center = Point.mid(this.points[0], this.points[2])
-    this.points.forEach(p => { p.scale(0.85, center) })
+    this.points.forEach(p => { p.scale(FACELET_SCALE, center) })
   }
 }
 
@@ -67,29 +75,29 @@ export class GeometricFace {
         point
           .rotate({ axis: Axis.X, angle: -90 })
           .rotate({ axis: Axis.Y, angle: 90 })
-          .translate(new Point(dimension, dimension, dimension))
+          .translate(dimension, dimension, dimension)
         break
       case Face.F:
         point
           .rotate({ axis: Axis.X, angle: -90 })
-          .translate(new Point(0, dimension, 0))
+          .translate(0, dimension, 0)
         break
       case Face.D:
         point
           .rotate({ axis: Axis.X, angle: 180 })
-          .translate(new Point(0, dimension, dimension))
+          .translate(0, dimension, dimension)
         break
       case Face.L:
         point
           .rotate({ axis: Axis.X, angle: -90 })
           .rotate({ axis: Axis.Y, angle: -90 })
-          .translate(new Point(0, dimension, 0))
+          .translate(0, dimension, 0)
         break
       case Face.B:
         point
           .rotate({ axis: Axis.X, angle: -90 })
           .rotate({ axis: Axis.Y, angle: 180 })
-          .translate(new Point(dimension, dimension, dimension))
+          .translate(dimension, dimension, dimension)
         break
     }
   }
@@ -102,17 +110,43 @@ export class GeometricFace {
 export class GeometricCube {
   [face: number]: GeometricFace
 
+  corners: Point[] = []
+  edges: [Point, Point][] = []
+
   constructor (public dimension: number, rotations: Rotation[], distance: number) {
+    //
+    // construct facelets points
+    //
     Util.forEachFace(face => {
       this[face] = new GeometricFace(dimension, face)
     })
 
-    // Translation vector to centre the cube
-    const t = new Point(-dimension / 2, -dimension / 2, -dimension / 2)
+    const cubeCenterDelta = -dimension / 2
     this.forEach(point => {
       // Now scale and tranform point to ensure size/pos independent of dim
-      point.translate(t).scale(1 / dimension)
+      point.translate(cubeCenterDelta).scale(1 / dimension)
     })
+
+    //
+    // assign corners and edges points for more accurate rendering
+    //
+    const extraPadding = (1 - FACELET_SCALE) * (3 / 4)
+    this.corners[Corner.URF] = new Point(dimension + extraPadding, -extraPadding, -extraPadding)
+    this.corners[Corner.URF].translate(cubeCenterDelta).scale(1 / dimension)
+
+    this.corners[Corner.UFL] = this.corners[Corner.URF].clone().rotate({ axis: Axis.Y, angle: -90 })
+    this.corners[Corner.ULB] = this.corners[Corner.UFL].clone().rotate({ axis: Axis.Y, angle: -90 })
+    this.corners[Corner.UBR] = this.corners[Corner.ULB].clone().rotate({ axis: Axis.Y, angle: -90 })
+    this.corners[Corner.DFR] = this.corners[Corner.URF].clone().rotate({ axis: Axis.X, angle: -90 })
+    this.corners[Corner.DLF] = this.corners[Corner.DFR].clone().rotate({ axis: Axis.Y, angle: -90 })
+    this.corners[Corner.DBL] = this.corners[Corner.DLF].clone().rotate({ axis: Axis.Y, angle: -90 })
+    this.corners[Corner.DRB] = this.corners[Corner.DBL].clone().rotate({ axis: Axis.Y, angle: -90 })
+
+    this.edges[Edge.UR] = [
+      this.corners[Corner.URF].clone().translate(0, 0, 1 - FACELET_SCALE),
+      this.corners[Corner.UBR].clone().translate(0, 0, -(1 - FACELET_SCALE))
+    ]
+    Util.times(2, n => this.edges[Edge.UR][n].translate(cubeCenterDelta).scale(1 / dimension))
 
     this.forEach(point => {
       // Rotate cube as per perameter settings
