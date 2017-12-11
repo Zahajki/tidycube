@@ -28,13 +28,10 @@ namespace Util {
   }}
 
 const STICKER_MARGIN = 0.075
-const EXTRA_MARGIN = 0.025
+const EXTRA_MARGIN = 0.02
 
 export enum Corner {
   URF = 0, UFL, ULB, UBR, DFR, DLF, DBL, DRB
-}
-enum Edge {
-  UR = 0, UF, UL, UB, DR, DF, DL, DB, FR, FL, BL, BR
 }
 export enum Face {
   U = 0, R, F, D, L, B
@@ -121,7 +118,7 @@ export class Vertex {
         this.edgeEndpoints[c] = Point.mid(
           this.corner,
           vertices[c].corner,
-          EXTRA_MARGIN / (1 + 2 * EXTRA_MARGIN)
+          (1 + (2 * STICKER_MARGIN)) / (1 + 2 * (EXTRA_MARGIN + STICKER_MARGIN))
         )
       }
     })
@@ -178,10 +175,10 @@ export class GeometricCube {
     this.forEach(point => point.rotate(rotation))
   }
 
-  silhouette (distance: number): [number, number][] {
+  silhouette (distance: number): [number[], Vertex[]] {
     const points = this.vertices.map(v => v.corner.project(distance))
     const hull = convexHull(points)
-    return hull.map(index => points[index])
+    return [hull, hull.map(index => this.vertices[index])]
   }
 
   private forEach (callbackfn: (p: Point) => void): void {

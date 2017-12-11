@@ -1,5 +1,5 @@
 import SvgBuilder, { HandySVGSVGElement, HandySVGElement } from './SvgBuilder'
-import { Rotation, Point, Axis } from './Geometry'
+import { Rotation, Point } from './Geometry'
 import { Face, GeometricCube } from './GeometricCube'
 import * as Color from 'color'
 
@@ -129,7 +129,6 @@ export default class SvgCubeVisualizer {
   }
 
   private composeFacelet (face: Face, i: number, j: number, distance: number, color: Color): HandySVGElement {
-    // Scale points in towards centre
     const points = this.cube[face][i][j].points
       .map(p => p.project(distance).join(',')).join(' ')
     return SvgBuilder.element('polygon')
@@ -142,12 +141,27 @@ export default class SvgCubeVisualizer {
   }
 
   private composeBody (distance: number): HandySVGElement {
-    return new HandySVGElement('polygon')
+    const [corners, vertices] = this.cube.silhouette(distance)
+
+    const move = vertices[vertices.length - 1].edgeEndpoints[corners[0]]
+    let d = `M${move.project(distance).join(',')} `
+    for (let i = 0; i < corners.length; i++) {
+      const prev = (i - 1 + corners.length) % corners.length
+      const next = (i + 1 + corners.length) % corners.length
+      const curveStart = vertices[i].edgeEndpoints[corners[prev]]
+      const curveEnd = vertices[i].edgeEndpoints[corners[next]]
+      const control1 = Point.mid(curveStart, vertices[i].corner, 0.55)
+      const control2 = Point.mid(curveEnd, vertices[i].corner, 0.55)
+      d += `L${curveStart.project(distance).join(',')} `
+      d += `C${control1.project(distance).join(',')} ${control2.project(distance).join(',')} ${curveEnd.project(distance).join(',')} `
+    }
+
+    return SvgBuilder.element('path')
       .addClass('body')
       .attributes({
         fill: this.cubeColor.hex(),
         opacity: this.cubeColor.alpha(),
-        points: this.cube.silhouette(distance).map(p => p.join(',')).join(' ')
+        d
       })
   }
 
@@ -157,9 +171,5 @@ export default class SvgCubeVisualizer {
 
   private composeArrows (face: number): HandySVGElement {
     return new HandySVGElement('path')
-  }
-
-  private isFaceVisible (face: number, rotationVector: any): boolean {
-    return true
   }
 }
