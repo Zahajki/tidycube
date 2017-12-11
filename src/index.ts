@@ -16,8 +16,11 @@ const faceletColors = [
   [['green', 'blue', 'green'], ['blue', 'green', 'blue'], ['green', 'blue', 'green']]
 ].map(face => face.map(row => row.map(name => Color(name))))
 
-const rotations: Rotation[] = []
+const rotations: Rotation[] = [
+  { axis: Axis.Y, angle: 30 },
+  { axis: Axis.X, angle: -25 }
+]
 
-const svg = new SvgCubeVisualBuilder(3, rotations, 5)
-  .visualize(512, Color('rgba(0, 255, 255, 0.2)'), Color('black'), faceletColors, [])
+const svg = new SvgCubeVisualBuilder(3)
+  .visualize(rotations, 5, 512, Color('rgba(0, 255, 255, 0.2)'), Color('rgba(128, 255, 128, 0.6)'), faceletColors, [])
 writeFileSync('test.svg', prettifyXml(svg.xml))

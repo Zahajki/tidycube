@@ -1,5 +1,5 @@
 import { Rotation, Point, Axis } from './Geometry'
-import flatten = require('lodash/flatten')
+import intersection = require('lodash/intersection')
 const convexHull: (points: [number, number][]) => number[] = require('monotone-convex-hull-2d')
 
 namespace Util {
@@ -20,11 +20,17 @@ namespace Util {
       }
     }
   }
-}
 
-const FACELET_SCALE = 0.85
+  // http://katsura-kotonoha.sakura.ne.jp/prog/c/tip0002f.shtml
+  export function clockwise (st: [number, number], en: [number, number], ta: [number, number]): boolean {
+    const n = ta[0] * (st[1] - en[1]) + st[0] * (en[1] - ta[1]) + en[0] * (ta[1] - st[1])
+    return n > 0
+  }}
 
-enum Corner {
+const STICKER_MARGIN = 0.075
+const EXTRA_MARGIN = 0.025
+
+export enum Corner {
   URF = 0, UFL, ULB, UBR, DFR, DLF, DBL, DRB
 }
 enum Edge {
@@ -38,28 +44,24 @@ export class GeometricFacelet {
   points: Point[] = []
 
   constructor (dimension: number, i: number, j: number) {
-    this.points[0] = new Point(i, 0, dimension - (j + 1))
-    this.points[1] = new Point(i + 1, 0, dimension - (j + 1))
-    this.points[2] = new Point(i + 1, 0, dimension - j)
-    this.points[3] = new Point(i, 0, dimension - j)
+    const zero = STICKER_MARGIN
+    const one = 1 - STICKER_MARGIN
+    this.points[0] = new Point(zero, 0, zero)
+    this.points[1] = new Point(zero, 0, one)
+    this.points[2] = new Point(one, 0, one)
+    this.points[3] = new Point(one, 0, zero)
 
-    const center = Point.mid(this.points[0], this.points[2])
-    this.points.forEach(p => { p.scale(FACELET_SCALE, center) })
+    this.points.forEach(p => p
+      .translate(i, 0, dimension - 1 - j)
+      .translate(-dimension / 2)
+    )
   }
 }
 
 export class GeometricFace {
   [i: number]: GeometricFacelet[]
 
-  points: Point[] = []
-
   constructor (dimension: number, face: Face) {
-    this.points[0] = new Point(0, 0, dimension)
-    this.points[1] = new Point(dimension, 0, dimension)
-    this.points[2] = new Point(dimension, 0, 0)
-    this.points[3] = new Point(0, 0, 0)
-    this.points.forEach(p => GeometricFace.transformToFace(p, dimension, face))
-
     Util.times(dimension, i => { this[i] = [] })
     Util.squareTimes(dimension, (i, j) => {
       this[i][j] = new GeometricFacelet(dimension, i, j)
@@ -72,48 +74,75 @@ export class GeometricFace {
       case Face.U:
         break
       case Face.R:
-        point
-          .rotate({ axis: Axis.X, angle: -90 })
-          .rotate({ axis: Axis.Y, angle: 90 })
-          .translate(dimension, dimension, dimension)
+        point.rotate({ axis: Axis.X, angle: -90 })
+             .rotate({ axis: Axis.Y, angle: 90 })
         break
       case Face.F:
-        point
-          .rotate({ axis: Axis.X, angle: -90 })
-          .translate(0, dimension, 0)
+        point.rotate({ axis: Axis.X, angle: -90 })
         break
       case Face.D:
-        point
-          .rotate({ axis: Axis.X, angle: 180 })
-          .translate(0, dimension, dimension)
+        point.rotate({ axis: Axis.X, angle: 180 })
         break
       case Face.L:
-        point
-          .rotate({ axis: Axis.X, angle: -90 })
-          .rotate({ axis: Axis.Y, angle: -90 })
-          .translate(0, dimension, 0)
+        point.rotate({ axis: Axis.X, angle: -90 })
+             .rotate({ axis: Axis.Y, angle: -90 })
         break
       case Face.B:
-        point
-          .rotate({ axis: Axis.X, angle: -90 })
-          .rotate({ axis: Axis.Y, angle: 180 })
-          .translate(dimension, dimension, dimension)
+        point.rotate({ axis: Axis.X, angle: -90 })
+             .rotate({ axis: Axis.Y, angle: 180 })
         break
     }
   }
 
-  center (): Point {
-    return Point.mid(this.points[0], this.points[2])
+  clockwise (distance: number): boolean {
+    const st = this[0][0].points[0].project(distance)
+    const en = this[0][0].points[1].project(distance)
+    const ta = this[0][0].points[2].project(distance)
+    return Util.clockwise(st, en, ta)
+  }
+}
+
+export class Vertex {
+  corner: Point
+  edgeEndpoints: Point[] = []
+
+  constructor (corner: Point) {
+    // URF corner vertex
+    this.corner = corner.clone()
+  }
+
+  private static adjacent (c1: Corner, c2: Corner) {
+    return intersection(Corner[c1].split(''), Corner[c2].split('')).length === 2
+  }
+
+  setEdgeEndpoints (corner: Corner, vertices: Vertex[]): void {
+    Util.times(8, c => {
+      if (Vertex.adjacent(corner, c)) {
+        this.edgeEndpoints[c] = Point.mid(
+          this.corner,
+          vertices[c].corner,
+          EXTRA_MARGIN / (1 + 2 * EXTRA_MARGIN)
+        )
+      }
+    })
+  }
+
+  forEach (callbackfn: (p: Point) => void): void {
+    callbackfn(this.corner)
+    Util.times(8, c => {
+      if (this.edgeEndpoints[c]) {
+        callbackfn(this.edgeEndpoints[c])
+      }
+    })
   }
 }
 
 export class GeometricCube {
   [face: number]: GeometricFace
 
-  corners: Point[] = []
-  edges: [Point, Point][] = []
+  vertices: Vertex[] = []
 
-  constructor (public dimension: number, rotations: Rotation[], distance: number) {
+  constructor (public dimension: number) {
     //
     // construct facelets points
     //
@@ -121,70 +150,46 @@ export class GeometricCube {
       this[face] = new GeometricFace(dimension, face)
     })
 
-    const cubeCenterDelta = -dimension / 2
-    this.forEach(point => {
-      // Now scale and tranform point to ensure size/pos independent of dim
-      point.translate(cubeCenterDelta).scale(1 / dimension)
-    })
-
     //
     // assign corners and edges points for more accurate rendering
     //
-    const extraPadding = (1 - FACELET_SCALE) * (3 / 4)
-    this.corners[Corner.URF] = new Point(dimension + extraPadding, -extraPadding, -extraPadding)
-    this.corners[Corner.URF].translate(cubeCenterDelta).scale(1 / dimension)
 
-    this.corners[Corner.UFL] = this.corners[Corner.URF].clone().rotate({ axis: Axis.Y, angle: -90 })
-    this.corners[Corner.ULB] = this.corners[Corner.UFL].clone().rotate({ axis: Axis.Y, angle: -90 })
-    this.corners[Corner.UBR] = this.corners[Corner.ULB].clone().rotate({ axis: Axis.Y, angle: -90 })
-    this.corners[Corner.DFR] = this.corners[Corner.URF].clone().rotate({ axis: Axis.X, angle: -90 })
-    this.corners[Corner.DLF] = this.corners[Corner.DFR].clone().rotate({ axis: Axis.Y, angle: -90 })
-    this.corners[Corner.DBL] = this.corners[Corner.DLF].clone().rotate({ axis: Axis.Y, angle: -90 })
-    this.corners[Corner.DRB] = this.corners[Corner.DBL].clone().rotate({ axis: Axis.Y, angle: -90 })
+    // URF corner vertex
+    const urf = new Point(dimension + EXTRA_MARGIN, -EXTRA_MARGIN, -EXTRA_MARGIN)
+      .translate(-dimension / 2)
+    let p = urf.clone()
+    this.vertices[Corner.URF] = new Vertex(p)
+    this.vertices[Corner.UFL] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
+    this.vertices[Corner.ULB] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
+    this.vertices[Corner.UBR] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
+    p = urf.rotate({ axis: Axis.X, angle: -90 })
+    this.vertices[Corner.DFR] = new Vertex(p)
+    this.vertices[Corner.DLF] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
+    this.vertices[Corner.DBL] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
+    this.vertices[Corner.DRB] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
 
-    this.edges[Edge.UR] = [
-      this.corners[Corner.URF].clone().translate(0, 0, 1 - FACELET_SCALE),
-      this.corners[Corner.UBR].clone().translate(0, 0, -(1 - FACELET_SCALE))
-    ]
-    Util.times(2, n => this.edges[Edge.UR][n].translate(cubeCenterDelta).scale(1 / dimension))
-
-    this.forEach(point => {
-      // Rotate cube as per perameter settings
-      rotations.forEach(rot => {
-        point.rotate(rot)
-      })
-      // Finally project the 3D points onto 2D
-      point.project(distance)
+    // set edge endpoints for each edge
+    Util.times(8, c => {
+      this.vertices[c].setEdgeEndpoints(c, this.vertices)
     })
   }
 
-  renderOrder (): Face[] {
-    const faces = [Face.U, Face.R, Face.F, Face.D, Face.L, Face.B]
-    faces.sort((a, b) => {
-      return this[b].center().z - this[a].center().z
-    })
-    return faces
+  rotate (rotation: Rotation) {
+    this.forEach(point => point.rotate(rotation))
   }
 
-  silhouette (): Point[] {
-    const faces = [Face.U, Face.R, Face.F, Face.D, Face.L, Face.B]
-    const points = flatten(faces.map(face => this[face].points))
-    const approxPoints = points.map(p => {
-      const approx = p.clone()
-      approx.x = parseFloat(approx.x.toFixed(8))
-      approx.y = parseFloat(approx.y.toFixed(8))
-      return approx
-    })
-    const hull = convexHull(approxPoints.map(p => p.to2dArray()))
+  silhouette (distance: number): [number, number][] {
+    const points = this.vertices.map(v => v.corner.project(distance))
+    const hull = convexHull(points)
     return hull.map(index => points[index])
   }
 
   private forEach (callbackfn: (p: Point) => void): void {
     Util.forEachFace(face => {
-      this[face].points.forEach(callbackfn)
       Util.squareTimes(this.dimension, (i , j) => {
         this[face][i][j].points.forEach(callbackfn)
       })
     })
+    this.vertices.forEach(v => v.forEach(callbackfn))
   }
 }

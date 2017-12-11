@@ -20,8 +20,12 @@ export interface Rotation {
 export class Point {
   constructor (public x: number, public y: number, public z: number) {}
 
-  static mid (p1: Point, p2: Point): Point {
-    return new Point((p1.x + p2.x) / 2, (p1.y + p2.y) / 2, (p1.z + p2.z) / 2)
+  static mid (p1: Point, p2: Point, ratio: number): Point {
+    return new Point(
+      ratio * p1.x + (1 - ratio) * p2.x,
+      ratio * p1.y + (1 - ratio) * p2.y,
+      ratio * p1.z + (1 - ratio) * p2.z
+    )
   }
 
   clone (): Point {
@@ -47,18 +51,6 @@ export class Point {
     return this
   }
 
-  scale (factor: number, center?: Point): Point {
-    if (!center) {
-      this.x *= factor
-      this.y *= factor
-      this.z *= factor
-    } else {
-      const iv = center.clone().invert()
-      this.translate(iv).scale(factor).translate(center)
-    }
-    return this
-  }
-
   rotate (rotation: Rotation): Point {
     const old = this.clone()
     const deg = rotation.angle
@@ -79,28 +71,13 @@ export class Point {
     return this
   }
 
-  project (distance: number): Point {
+  project (distance: number): [number, number] {
     if (distance !== Infinity) {
-      const old = this.clone()
-      this.x = old.x * distance / (old.z + distance)
-      this.y = old.y * distance / (old.z + distance)
-      // Maintain z coordinate to allow use of rendering tricks
+      return [
+        this.x * distance / (this.z + distance),
+        this.y * distance / (this.z + distance)
+      ]
     }
-    return this
-  }
-
-  to2dArray (): [number, number] {
     return [this.x, this.y]
-  }
-
-  to2dString (): string {
-    return this.x.toFixed(8) + ',' + this.y.toFixed(8)
-  }
-
-  private invert (): Point {
-    this.x *= -1
-    this.y *= -1
-    this.z *= -1
-    return this
   }
 }
