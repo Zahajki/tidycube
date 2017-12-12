@@ -1,7 +1,9 @@
 import SvgBuilder, { HandySVGSVGElement, HandySVGElement } from './SvgBuilder'
 import { Rotation, Point } from './Geometry'
-import { Face, GeometricCube } from './GeometricCube'
+import { Face } from './GeometricCubeBase'
+import { GeometricCube } from './GeometricCube'
 import * as Color from 'color'
+import { GeometricLastLayer } from './GeometricLastLayer'
 
 export class Rectangle {
   constructor (public x: number, public y: number, public width: number, public height: number) {}
@@ -14,13 +16,14 @@ export class Rectangle {
 export default class SvgCubeVisualizer {
   private cubeColor: Color
   private faceletColors: Color[][][]
-  private view: 'normal' | 'plan' = 'normal'
   private arrows: any[]
 
-  private cube: GeometricCube
+  private cube: GeometricCube | GeometricLastLayer
 
-  constructor (private dimension: number) {
-    this.cube = new GeometricCube(this.dimension)
+  constructor (private dimension: number, private view: 'normal' | 'plan') {
+    this.cube = view === 'normal' ?
+      new GeometricCube(this.dimension) :
+      new GeometricLastLayer(this.dimension)
   }
 
   visualize (
@@ -38,6 +41,9 @@ export default class SvgCubeVisualizer {
 
     distance *= this.dimension
 
+    if (this.view === 'plan') {
+      rotations = [['x', -90]]
+    }
     rotations.forEach(rot => this.cube.rotate(rot))
 
     const viewBox = new Rectangle(
@@ -75,7 +81,9 @@ export default class SvgCubeVisualizer {
     }
 
     // Create outline
-    this.composeBody(distance).appendTo(svg)
+    if (this.view === 'normal') {
+      this.composeBody(distance).appendTo(svg)
+    }
 
     // Create polygon for each visible facelet
     for (let f = 0; f < 6; f++) {
@@ -122,7 +130,11 @@ export default class SvgCubeVisualizer {
     const polygons = []
     for (let j = 0; j < this.dimension; j++) {
       for (let i = 0; i < this.dimension; i ++) {
-        polygons.push(this.composeFacelet(face, i, j, distance, this.faceletColors[face][i][j]))
+        let jay = j
+        if (this.view !== 'normal' && face !== Face.U && face !== Face.D) {
+          jay = 0
+        }
+        polygons.push(this.composeFacelet(face, i, jay, distance, this.faceletColors[face][i][jay]))
       }
     }
     return SvgBuilder.element('g').addClass('face').append(polygons)
@@ -141,7 +153,7 @@ export default class SvgCubeVisualizer {
   }
 
   private composeBody (distance: number): HandySVGElement {
-    const [corners, vertices] = this.cube.silhouette(distance)
+    const [corners, vertices] = (this.cube as GeometricCube).silhouette(distance)
 
     const data: string[] = []
 
