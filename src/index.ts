@@ -17,8 +17,8 @@ const faceletColors = [
 ].map(face => face.map(row => row.map(name => Color(name).alpha(0.9))))
 
 const rotations: Rotation[] = [
-  { axis: Axis.Y, angle: 30 },
-  { axis: Axis.X, angle: -25 }
+  ['y', 30],
+  ['x', -25]
 ]
 
 const svg = new SvgCubeVisualBuilder(3)

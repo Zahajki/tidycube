@@ -68,7 +68,7 @@ export default class SvgCubeVisualizer {
     if (this.cubeColor.alpha() < 1) {
       // Create polygon for each backside facelet (transparency only)
       for (let f = 0; f < 6; f++) {
-        if (!this.cube[f].clockwise(distance)) {
+        if (!this.cube[f].facingFront(distance)) {
           svg.append(this.composeFace(f, distance))
         }
       }
@@ -79,7 +79,7 @@ export default class SvgCubeVisualizer {
 
     // Create polygon for each visible facelet
     for (let f = 0; f < 6; f++) {
-      if (this.cube[f].clockwise(distance)) {
+      if (this.cube[f].facingFront(distance)) {
         svg.append(this.composeFace(f, distance))
       }
     }
@@ -130,7 +130,7 @@ export default class SvgCubeVisualizer {
 
   private composeFacelet (face: Face, i: number, j: number, distance: number, color: Color): HandySVGElement {
     const points = this.cube[face][i][j].points
-      .map(p => p.project(distance).join(',')).join(' ')
+      .map(p => p.to2dString(distance)).join(' ')
     return SvgBuilder.element('polygon')
       .addClass('facelet')
       .attributes({
@@ -143,8 +143,10 @@ export default class SvgCubeVisualizer {
   private composeBody (distance: number): HandySVGElement {
     const [corners, vertices] = this.cube.silhouette(distance)
 
+    const data: string[] = []
+
     const move = vertices[vertices.length - 1].edgeEndpoints[corners[0]]
-    let d = `M${move.project(distance).join(',')} `
+    data.push('M' + move.to2dString(distance))
     for (let i = 0; i < corners.length; i++) {
       const prev = (i - 1 + corners.length) % corners.length
       const next = (i + 1 + corners.length) % corners.length
@@ -152,8 +154,11 @@ export default class SvgCubeVisualizer {
       const curveEnd = vertices[i].edgeEndpoints[corners[next]]
       const control1 = Point.mid(curveStart, vertices[i].corner, 0.55)
       const control2 = Point.mid(curveEnd, vertices[i].corner, 0.55)
-      d += `L${curveStart.project(distance).join(',')} `
-      d += `C${control1.project(distance).join(',')} ${control2.project(distance).join(',')} ${curveEnd.project(distance).join(',')} `
+      data.push('L' + curveStart.to2dString(distance))
+      data.push('C' +
+        control1.to2dString(distance) + ' ' +
+        control2.to2dString(distance) + ' ' +
+        curveEnd.to2dString(distance))
     }
 
     return SvgBuilder.element('path')
@@ -161,7 +166,7 @@ export default class SvgCubeVisualizer {
       .attributes({
         fill: this.cubeColor.hex(),
         opacity: this.cubeColor.alpha(),
-        d
+        d: data.join(' ')
       })
   }
 

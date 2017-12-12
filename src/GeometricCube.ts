@@ -1,5 +1,4 @@
 import { Rotation, Point, Axis } from './Geometry'
-import intersection = require('lodash/intersection')
 const convexHull: (points: [number, number][]) => number[] = require('monotone-convex-hull-2d')
 
 namespace Util {
@@ -21,10 +20,12 @@ namespace Util {
     }
   }
 
-  // http://katsura-kotonoha.sakura.ne.jp/prog/c/tip0002f.shtml
-  export function clockwise (st: [number, number], en: [number, number], ta: [number, number]): boolean {
-    const n = ta[0] * (st[1] - en[1]) + st[0] * (en[1] - ta[1]) + en[0] * (ta[1] - st[1])
-    return n > 0
+  // https://math.stackexchange.com/a/274728
+  export function onRightSide (line: [[number, number], [number, number]], point: [number, number]): boolean {
+    const [[x1, y1], [x2, y2]] = line
+    const [x, y] = point
+    const d = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1)
+    return d < 0
   }}
 
 const STICKER_MARGIN = 0.075
@@ -40,18 +41,42 @@ export enum Face {
 export class GeometricFacelet {
   points: Point[] = []
 
-  constructor (dimension: number, i: number, j: number) {
-    const zero = STICKER_MARGIN
-    const one = 1 - STICKER_MARGIN
-    this.points[0] = new Point(zero, 0, zero)
-    this.points[1] = new Point(zero, 0, one)
-    this.points[2] = new Point(one, 0, one)
-    this.points[3] = new Point(one, 0, zero)
+  constructor (dimension: number, face: Face, i: number, j: number) {
+    this.points[0] = new Point(STICKER_MARGIN, 0, STICKER_MARGIN)
+    this.points[1] = new Point(STICKER_MARGIN, 0, 1 - STICKER_MARGIN)
+    this.points[2] = new Point(1 - STICKER_MARGIN, 0, 1 - STICKER_MARGIN)
+    this.points[3] = new Point(1 - STICKER_MARGIN, 0, STICKER_MARGIN)
 
-    this.points.forEach(p => p
-      .translate(i, 0, dimension - 1 - j)
-      .translate(-dimension / 2)
-    )
+    this.points.forEach(p => {
+      p.translate(i, 0, dimension - 1 - j)
+       .translate(-dimension / 2)
+      GeometricFacelet.transformToFace(p, face)
+    })
+  }
+
+  private static transformToFace (point: Point, face: Face): void {
+    switch (face) {
+      case Face.U:
+        break
+      case Face.R:
+        point.rotate(['x', -90])
+             .rotate(['y', 90])
+        break
+      case Face.F:
+        point.rotate(['x', -90])
+        break
+      case Face.D:
+        point.rotate(['x', 180])
+        break
+      case Face.L:
+        point.rotate(['x', -90])
+             .rotate(['y', -90])
+        break
+      case Face.B:
+        point.rotate(['x', -90])
+             .rotate(['y', 180])
+        break
+    }
   }
 }
 
@@ -61,41 +86,15 @@ export class GeometricFace {
   constructor (dimension: number, face: Face) {
     Util.times(dimension, i => { this[i] = [] })
     Util.squareTimes(dimension, (i, j) => {
-      this[i][j] = new GeometricFacelet(dimension, i, j)
-      this[i][j].points.forEach(p => GeometricFace.transformToFace(p, dimension, face))
+      this[i][j] = new GeometricFacelet(dimension, face, i, j)
     })
   }
 
-  private static transformToFace (point: Point, dimension: number, face: Face): void {
-    switch (face) {
-      case Face.U:
-        break
-      case Face.R:
-        point.rotate({ axis: Axis.X, angle: -90 })
-             .rotate({ axis: Axis.Y, angle: 90 })
-        break
-      case Face.F:
-        point.rotate({ axis: Axis.X, angle: -90 })
-        break
-      case Face.D:
-        point.rotate({ axis: Axis.X, angle: 180 })
-        break
-      case Face.L:
-        point.rotate({ axis: Axis.X, angle: -90 })
-             .rotate({ axis: Axis.Y, angle: -90 })
-        break
-      case Face.B:
-        point.rotate({ axis: Axis.X, angle: -90 })
-             .rotate({ axis: Axis.Y, angle: 180 })
-        break
-    }
-  }
-
-  clockwise (distance: number): boolean {
-    const st = this[0][0].points[0].project(distance)
-    const en = this[0][0].points[1].project(distance)
-    const ta = this[0][0].points[2].project(distance)
-    return Util.clockwise(st, en, ta)
+  facingFront (distance: number): boolean {
+    const lineS = this[0][0].points[0].project(distance)
+    const lineE = this[0][0].points[1].project(distance)
+    const target = this[0][0].points[2].project(distance)
+    return Util.onRightSide([lineS, lineE], target)
   }
 }
 
@@ -109,7 +108,8 @@ export class Vertex {
   }
 
   private static adjacent (c1: Corner, c2: Corner) {
-    return intersection(Corner[c1].split(''), Corner[c2].split('')).length === 2
+    const match = Corner[c1].match(new RegExp(`[${Corner[c2]}]`, 'g'))
+    return match && match.length === 2
   }
 
   setEdgeEndpoints (corner: Corner, vertices: Vertex[]): void {
@@ -156,14 +156,14 @@ export class GeometricCube {
       .translate(-dimension / 2)
     let p = urf.clone()
     this.vertices[Corner.URF] = new Vertex(p)
-    this.vertices[Corner.UFL] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
-    this.vertices[Corner.ULB] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
-    this.vertices[Corner.UBR] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
-    p = urf.rotate({ axis: Axis.X, angle: -90 })
+    this.vertices[Corner.UFL] = new Vertex(p.rotate(['y', -90]))
+    this.vertices[Corner.ULB] = new Vertex(p.rotate(['y', -90]))
+    this.vertices[Corner.UBR] = new Vertex(p.rotate(['y', -90]))
+    p = urf.rotate(['x', -90])
     this.vertices[Corner.DFR] = new Vertex(p)
-    this.vertices[Corner.DLF] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
-    this.vertices[Corner.DBL] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
-    this.vertices[Corner.DRB] = new Vertex(p.rotate({ axis: Axis.Y, angle: -90 }))
+    this.vertices[Corner.DLF] = new Vertex(p.rotate(['y', -90]))
+    this.vertices[Corner.DBL] = new Vertex(p.rotate(['y', -90]))
+    this.vertices[Corner.DRB] = new Vertex(p.rotate(['y', -90]))
 
     // set edge endpoints for each edge
     Util.times(8, c => {

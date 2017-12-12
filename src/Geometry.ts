@@ -1,5 +1,5 @@
 export enum Axis {
-  X = 0, Y, Z
+  X = 'x', Y = 'y', Z = 'z'
 }
 
 namespace Degree {
@@ -12,10 +12,7 @@ namespace Degree {
   }
 }
 
-export interface Rotation {
-  axis: Axis
-  angle: number
-}
+export type Rotation = [Axis | 'x' | 'y' | 'z', number]
 
 export class Point {
   constructor (public x: number, public y: number, public z: number) {}
@@ -32,29 +29,19 @@ export class Point {
     return new Point(this.x, this.y, this.z)
   }
 
-  translate (delta: Point): Point
-  translate (x: number, y?: number, z?: number): Point
-  translate (deltaOrX: number | Point, y?: number, z?: number): Point {
-    if (typeof deltaOrX === 'number' && typeof y === 'number' && typeof z === 'number') {
-      this.x += deltaOrX
-      this.y += y
-      this.z += z
-    } else if (typeof deltaOrX === 'number' && typeof y === 'undefined') {
-      this.x += deltaOrX
-      this.y += deltaOrX
-      this.z += deltaOrX
-    } else if (typeof deltaOrX !== 'number') {
-      this.x += deltaOrX.x
-      this.y += deltaOrX.y
-      this.z += deltaOrX.z
-    }
+  translate (x: number, y?: number, z?: number): Point {
+    if (typeof y === 'undefined') y = x
+    if (typeof z === 'undefined') z = y
+    this.x += x
+    this.y += y
+    this.z += z
     return this
   }
 
   rotate (rotation: Rotation): Point {
     const old = this.clone()
-    const deg = rotation.angle
-    switch (rotation.axis) {
+    const deg = rotation[1]
+    switch (rotation[0]) {
       case Axis.X:
         this.z = old.z * Degree.cos(deg) - old.y * Degree.sin(deg)
         this.y = old.z * Degree.sin(deg) + old.y * Degree.cos(deg)
@@ -79,5 +66,9 @@ export class Point {
       ]
     }
     return [this.x, this.y]
+  }
+
+  to2dString (distance: number): string {
+    return this.project(distance).map(n => n.toFixed(8)).join(',')
   }
 }
