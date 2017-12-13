@@ -81,3 +81,13 @@ export class Point {
     return this.project(distance).map(n => n.toFixed(4)).join(',')
   }
 }
+
+// https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
+export function intersection (l1: [[number, number], [number, number]], l2: [[number, number], [number, number]]): [number, number] {
+  const [[x1, y1], [x2, y2]] = l1
+  const [[x3, y3], [x4, y4]] = l2
+  const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
+  const xNumer = (x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)
+  const yNumer = (x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)
+  return [xNumer / denom, yNumer / denom]
+}

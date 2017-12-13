@@ -113,8 +113,8 @@ export class GeometricCubeBase {
     })
   }
 
-  rotate (rotation: Rotation) {
-    this.forEach(point => point.rotate(rotation))
+  rotate (...rotations: Rotation[]) {
+    this.forEach(point => point.rotate.apply(point, rotations))
   }
 
   protected forEach (callbackfn: (p: Point) => void): void {

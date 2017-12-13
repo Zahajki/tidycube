@@ -16,13 +16,13 @@ export class Vertex {
     return match && match.length === 2
   }
 
-  setEdgeEndpoints (corner: Corner, vertices: Vertex[]): void {
+  setEdgeEndpoints (dimension: number, corner: Corner, vertices: Vertex[]): void {
     Util.times(8, c => {
       if (Vertex.adjacent(corner, c)) {
         this.edgeEndpoints[c] = Point.mid(
           this.corner,
           vertices[c].corner,
-          (1 + (2 * STICKER_MARGIN)) / (1 + 2 * (EXTRA_MARGIN + STICKER_MARGIN))
+          (dimension + EXTRA_MARGIN - STICKER_MARGIN) / (dimension + 2 * EXTRA_MARGIN)
         )
       }
     })
@@ -64,7 +64,7 @@ export class GeometricCube extends GeometricCubeBase {
 
     // set edge endpoints for each edge
     Util.times(8, c => {
-      this.vertices[c].setEdgeEndpoints(c, this.vertices)
+      this.vertices[c].setEdgeEndpoints(dimension, c, this.vertices)
     })
   }
 
