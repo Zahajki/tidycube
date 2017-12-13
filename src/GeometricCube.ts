@@ -1,5 +1,5 @@
 import { GeometricCubeBase, Corner, Util, STICKER_MARGIN, EXTRA_MARGIN } from './GeometricCubeBase'
-import { Rotation, Point } from './Geometry'
+import { Point } from './Geometry'
 const convexHull: (points: [number, number][]) => number[] = require('monotone-convex-hull-2d')
 
 export class Vertex {
@@ -50,7 +50,7 @@ export class GeometricCube extends GeometricCubeBase {
 
     // URF corner vertex
     const urf = new Point(dimension + EXTRA_MARGIN, -EXTRA_MARGIN, -EXTRA_MARGIN)
-    .translate(-dimension / 2)
+      .translate(-dimension / 2)
     let p = urf.clone()
     this.vertices[Corner.URF] = new Vertex(p)
     this.vertices[Corner.UFL] = new Vertex(p.rotate(['y', -90]))

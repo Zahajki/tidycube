@@ -42,25 +42,26 @@ export class GeometricFacelet {
   points: Point[] = []
 
   constructor (dimension: number, face: Face, i: number, j: number) {
+    // align margined squaremost on U face, left-front most facelet
     this.points[0] = new Point(STICKER_MARGIN, 0, STICKER_MARGIN)
     this.points[1] = new Point(STICKER_MARGIN, 0, 1 - STICKER_MARGIN)
     this.points[2] = new Point(1 - STICKER_MARGIN, 0, 1 - STICKER_MARGIN)
     this.points[3] = new Point(1 - STICKER_MARGIN, 0, STICKER_MARGIN)
 
+    // translate and rotate to right position
     this.points.forEach(p => {
       p.translate(i, 0, dimension - 1 - j)
        .translate(-dimension / 2)
-      GeometricFacelet.transformToFace(p, face)
+      GeometricFacelet.rotateOntoFace(p, face)
     })
   }
 
-  private static transformToFace (point: Point, face: Face): void {
+  private static rotateOntoFace (point: Point, face: Face): void {
     switch (face) {
       case Face.U:
         break
       case Face.R:
-        point.rotate(['x', -90])
-             .rotate(['y', -90])
+        point.rotate(['x', -90], ['y', -90])
         break
       case Face.F:
         point.rotate(['x', -90])
@@ -69,12 +70,10 @@ export class GeometricFacelet {
         point.rotate(['x', 180])
         break
       case Face.L:
-        point.rotate(['x', -90])
-             .rotate(['y', 90])
+        point.rotate(['x', -90], ['y', 90])
         break
       case Face.B:
-        point.rotate(['x', -90])
-             .rotate(['y', 180])
+        point.rotate(['x', -90], ['y', 180])
         break
     }
   }
@@ -119,10 +118,6 @@ export class GeometricCubeBase {
   }
 
   protected forEach (callbackfn: (p: Point) => void): void {
-    Util.forEachFace(face => {
-      Util.squareTimes(this.dimension, (i , j) => {
-        this[face][i][j].points.forEach(callbackfn)
-      })
-    })
+    Util.forEachFace(face => this[face].forEach(callbackfn))
   }
 }

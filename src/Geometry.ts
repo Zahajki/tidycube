@@ -3,12 +3,16 @@ export enum Axis {
 }
 
 namespace Degree {
+  function deg2rad (degree: number) {
+    return Math.PI * degree / 180
+  }
+
   export function sin (angle: number): number {
-    return Math.sin(Math.PI * angle / 180)
+    return Math.sin(deg2rad(angle))
   }
 
   export function cos (angle: number): number {
-    return Math.cos(Math.PI * angle / 180)
+    return Math.cos(deg2rad(angle))
   }
 }
 
@@ -38,37 +42,42 @@ export class Point {
     return this
   }
 
-  rotate (rotation: Rotation): Point {
-    const old = this.clone()
-    const deg = rotation[1]
-    switch (rotation[0]) {
-      case Axis.X:
-        this.z = old.z * Degree.cos(deg) - old.y * Degree.sin(deg)
-        this.y = old.z * Degree.sin(deg) + old.y * Degree.cos(deg)
-        break
-      case Axis.Y:
-        this.x = old.x * Degree.cos(deg) + old.z * Degree.sin(deg)
-        this.z = -old.x * Degree.sin(deg) + old.z * Degree.cos(deg)
-        break
-      case Axis.Z:
-        this.x = old.x * Degree.cos(deg) - old.y * Degree.sin(deg)
-        this.y = old.x * Degree.sin(deg) + old.y * Degree.cos(deg)
-        break
+  rotate (...rotations: Rotation[]): Point {
+    function r (self: Point, rotation: Rotation): Point {
+      const { x, y, z } = self
+      const [axis, angle] = rotation
+      switch (axis) {
+        case Axis.X:
+          self.z = z * Degree.cos(angle) - y * Degree.sin(angle)
+          self.y = z * Degree.sin(angle) + y * Degree.cos(angle)
+          break
+        case Axis.Y:
+          self.x = x * Degree.cos(angle) + z * Degree.sin(angle)
+          self.z = -x * Degree.sin(angle) + z * Degree.cos(angle)
+          break
+        case Axis.Z:
+          self.x = x * Degree.cos(angle) - y * Degree.sin(angle)
+          self.y = x * Degree.sin(angle) + y * Degree.cos(angle)
+          break
+      }
+      return self
     }
+
+    rotations.forEach(rot => r(this, rot))
     return this
   }
 
   project (distance: number): [number, number] {
-    if (distance !== Infinity) {
-      return [
-        this.x * distance / (this.z + distance),
-        this.y * distance / (this.z + distance)
-      ]
+    if (distance === Infinity) {
+      return [this.x, this.y]
     }
-    return [this.x, this.y]
+    return [
+      this.x * distance / (this.z + distance),
+      this.y * distance / (this.z + distance)
+    ]
   }
 
   to2dString (distance: number): string {
-    return this.project(distance).map(n => n.toFixed(8)).join(',')
+    return this.project(distance).map(n => n.toFixed(4)).join(',')
   }
 }
