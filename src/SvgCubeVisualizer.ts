@@ -46,7 +46,7 @@ export default class SvgCubeVisualizer {
     if (this.view === 'plan') {
       rotations = [['x', -90]]
     }
-    this.cube.rotate.apply(this.cube, rotations)
+    this.cube.rotate(...rotations)
 
     const viewBox = new Rectangle(
       -0.9 * this.dimension,

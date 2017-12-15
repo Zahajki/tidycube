@@ -39,6 +39,15 @@ export enum Face {
 }
 
 export class GeometricFacelet {
+  private static readonly rotationOntoFace: { [f: number]: Rotation[] } = {
+    0 /* U */: [],
+    1 /* R */: [['x', -90], ['y', -90]],
+    2 /* F */: [['x', -90]],
+    3 /* D */: [['x', 180]],
+    4 /* L */: [['x', -90], ['y', 90]],
+    5 /* B */: [['x', -90], ['y', 180]]
+  }
+
   points: Point[] = []
 
   constructor (dimension: number, face: Face, i: number, j: number) {
@@ -52,30 +61,8 @@ export class GeometricFacelet {
     this.points.forEach(p => {
       p.translate(i, 0, dimension - 1 - j)
        .translate(-dimension / 2)
-      GeometricFacelet.rotateOntoFace(p, face)
+       .rotate(...GeometricFacelet.rotationOntoFace[face])
     })
-  }
-
-  private static rotateOntoFace (point: Point, face: Face): void {
-    switch (face) {
-      case Face.U:
-        break
-      case Face.R:
-        point.rotate(['x', -90], ['y', -90])
-        break
-      case Face.F:
-        point.rotate(['x', -90])
-        break
-      case Face.D:
-        point.rotate(['x', 180])
-        break
-      case Face.L:
-        point.rotate(['x', -90], ['y', 90])
-        break
-      case Face.B:
-        point.rotate(['x', -90], ['y', 180])
-        break
-    }
   }
 }
 

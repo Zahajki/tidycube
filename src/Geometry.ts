@@ -1,22 +1,10 @@
-export enum Axis {
-  X = 'x', Y = 'y', Z = 'z'
+export type Axis = 'x' | 'y' | 'z'
+
+export type Rotation = [Axis, number]
+
+function deg2rad (degree: number) {
+  return Math.PI * degree / 180
 }
-
-namespace Degree {
-  function deg2rad (degree: number) {
-    return Math.PI * degree / 180
-  }
-
-  export function sin (angle: number): number {
-    return Math.sin(deg2rad(angle))
-  }
-
-  export function cos (angle: number): number {
-    return Math.cos(deg2rad(angle))
-  }
-}
-
-export type Rotation = [Axis | 'x' | 'y' | 'z', number]
 
 export class Point {
   constructor (public x: number, public y: number, public z: number) {}
@@ -43,28 +31,26 @@ export class Point {
   }
 
   rotate (...rotations: Rotation[]): Point {
-    function r (self: Point, rotation: Rotation): Point {
+    return rotations.reduce((self, rotation) => {
       const { x, y, z } = self
-      const [axis, angle] = rotation
+      const axis = rotation[0]
+      const angle = Math.PI * rotation[1] / 180
       switch (axis) {
-        case Axis.X:
-          self.z = z * Degree.cos(angle) - y * Degree.sin(angle)
-          self.y = z * Degree.sin(angle) + y * Degree.cos(angle)
+        case 'x':
+          self.z = z * Math.cos(angle) - y * Math.sin(angle)
+          self.y = z * Math.sin(angle) + y * Math.cos(angle)
           break
-        case Axis.Y:
-          self.x = x * Degree.cos(angle) + z * Degree.sin(angle)
-          self.z = -x * Degree.sin(angle) + z * Degree.cos(angle)
+        case 'y':
+          self.x = x * Math.cos(angle) + z * Math.sin(angle)
+          self.z = -x * Math.sin(angle) + z * Math.cos(angle)
           break
-        case Axis.Z:
-          self.x = x * Degree.cos(angle) - y * Degree.sin(angle)
-          self.y = x * Degree.sin(angle) + y * Degree.cos(angle)
+        case 'z':
+          self.x = x * Math.cos(angle) - y * Math.sin(angle)
+          self.y = x * Math.sin(angle) + y * Math.cos(angle)
           break
       }
       return self
-    }
-
-    rotations.forEach(rot => r(this, rot))
-    return this
+    }, this)
   }
 
   project (distance: number): [number, number] {
