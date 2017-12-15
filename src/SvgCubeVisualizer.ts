@@ -188,8 +188,8 @@ export default class SvgCubeVisualizer {
       data.push('L' + rightCurveStart.to2dString(distance))
 
       const rightCurveEnd = outlines[i].rightTip[2]
-      const rightControl1 = Point.mid(rightCurveStart, outlines[i].rightTip[1], 0.3)
-      const rightControl2 = Point.mid(rightCurveEnd, outlines[i].rightTip[1], 0.3)
+      const rightControl1 = Point.mid(rightCurveStart, outlines[i].rightTip[1], 0.2)
+      const rightControl2 = Point.mid(rightCurveEnd, outlines[i].rightTip[1], 0.2)
       data.push('C' +
         rightControl1.to2dString(distance) + ' ' +
         rightControl2.to2dString(distance) + ' ' +
@@ -199,8 +199,8 @@ export default class SvgCubeVisualizer {
       data.push('L' + leftCurveStart.to2dString(distance))
 
       const leftCurveEnd = outlines[i].leftTip[2]
-      const leftControl1 = Point.mid(leftCurveStart, outlines[i].leftTip[1], 0.3)
-      const leftControl2 = Point.mid(leftCurveEnd, outlines[i].leftTip[1], 0.3)
+      const leftControl1 = Point.mid(leftCurveStart, outlines[i].leftTip[1], 0.2)
+      const leftControl2 = Point.mid(leftCurveEnd, outlines[i].leftTip[1], 0.2)
       data.push('C' +
         leftControl1.to2dString(distance) + ' ' +
         leftControl2.to2dString(distance) + ' ' +

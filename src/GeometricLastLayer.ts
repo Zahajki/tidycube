@@ -3,6 +3,8 @@ import { Point } from './Geometry';
 
 const TILT_ANGLE = 34
 
+const MORE_EXTRA_MARGIN = 0.04
+
 const tilter = {
   1 /* Face.R*/:
     (point: Point, center: number) => point
@@ -26,7 +28,7 @@ const tilter = {
     (point: Point, center: number) => point
       .translate(0, center, -center)
       .rotate(['x', -TILT_ANGLE])
-      .translate(0, -center, center),
+      .translate(0, -center, center)
 }
 
 export class SideFaceOutline {
@@ -40,12 +42,12 @@ export class SideFaceOutline {
     this.rightBase = new Point(dimension + EXTRA_MARGIN, STICKER_MARGIN, 0)
     this.rightTip = [
       new Point(dimension + EXTRA_MARGIN, 1 - STICKER_MARGIN, 0),
-      new Point(dimension + EXTRA_MARGIN, 1 + EXTRA_MARGIN, 0),
-      new Point(dimension - STICKER_MARGIN, 1 + EXTRA_MARGIN, 0)
+      new Point(dimension + EXTRA_MARGIN, 1 + EXTRA_MARGIN + MORE_EXTRA_MARGIN, 0),
+      new Point(dimension - STICKER_MARGIN, 1 + EXTRA_MARGIN + MORE_EXTRA_MARGIN, 0)
     ]
     this.leftTip = [
-      new Point(STICKER_MARGIN, 1 + EXTRA_MARGIN, 0),
-      new Point(-EXTRA_MARGIN, 1 + EXTRA_MARGIN, 0),
+      new Point(STICKER_MARGIN, 1 + EXTRA_MARGIN + MORE_EXTRA_MARGIN, 0),
+      new Point(-EXTRA_MARGIN, 1 + EXTRA_MARGIN + MORE_EXTRA_MARGIN, 0),
       new Point(-EXTRA_MARGIN, 1 - STICKER_MARGIN, 0)
     ]
     this.leftBase = new Point(-EXTRA_MARGIN, STICKER_MARGIN, 0)
