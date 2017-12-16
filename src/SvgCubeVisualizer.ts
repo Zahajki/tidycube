@@ -1,5 +1,5 @@
 import SvgBuilder, { HandySVGSVGElement, HandySVGElement } from './SvgBuilder'
-import { Rotation, Point, intersection } from './Geometry'
+import { Rotation, Point, intersection, Line2, midPoint } from './Geometry'
 import { Face } from './GeometricCubeBase'
 import { GeometricCube } from './GeometricCube'
 import * as Color from 'color'
@@ -12,8 +12,6 @@ export class Rectangle {
     return [this.x, this.y, this.width, this.height].join(' ')
   }
 }
-
-type Line = [[number, number], [number, number]]
 
 export default class SvgCubeVisualizer {
   private cubeColor: Color
@@ -44,7 +42,7 @@ export default class SvgCubeVisualizer {
     distance *= this.dimension
 
     if (this.view === 'plan') {
-      rotations = [['x', -90]]
+      rotations = [['x', 90]]
     }
     this.cube.rotate(...rotations)
 
@@ -56,8 +54,13 @@ export default class SvgCubeVisualizer {
 
     const svg = SvgBuilder.create(imageSize, imageSize, viewBox + '')
       .addClass('visualcube')
+    const container = SvgBuilder.element('g')
+      .attributes({
+        transform: 'scale(1, -1)'
+      })
+      .appendTo(svg)
 
-    // background
+      // background
     if (backgroundColor) {
       SvgBuilder.element('rect')
         .addClass('background')
@@ -69,29 +72,25 @@ export default class SvgCubeVisualizer {
           width: viewBox.width,
           height: viewBox.height
         })
-        .appendTo(svg)
+        .appendTo(container)
     }
 
     // backside facelets
     if (this.cubeColor.alpha() < 1) {
       for (let f = 0; f < 6; f++) {
-        if (!this.cube[f].facingFront(distance)) {
-          svg.append(this.composeFace(f, distance))
+        if (!this.cube.facingFront(f, distance)) {
+          container.append(this.composeFace(f, distance))
         }
       }
     }
 
     // cube body
-    if (this.view === 'normal') {
-      this.composeBody(distance).appendTo(svg)
-    } else {
-      this.composeLastLayer(distance).appendTo(svg)
-    }
+    this.composeBody(distance).appendTo(container)
 
     // foreside facelets
     for (let f = 0; f < 6; f++) {
-      if (this.cube[f].facingFront(distance)) {
-        svg.append(this.composeFace(f, distance))
+      if (this.cube.facingFront(f, distance)) {
+        container.append(this.composeFace(f, distance))
       }
     }
 
@@ -105,7 +104,7 @@ export default class SvgCubeVisualizer {
           strokeWidth: arrowWidth,
           strokeLinejoin: 'round'
         })
-        .appendTo(svg)
+        .appendTo(container)
       for (let i = 0; i < this.arrows.length; i++) {
         g.append(this.composeArrows(i))
       }
@@ -120,7 +119,7 @@ export default class SvgCubeVisualizer {
       for (let i = 0; i < this.dimension; i ++) {
         let jay = j
         if (this.view !== 'normal' && face !== Face.U && face !== Face.D) {
-          jay = 0
+          jay = this.dimension - 1
         }
         polygons.push(this.composeFacelet(face, i, jay, distance, this.faceletColors[face][i][jay]))
       }
@@ -129,7 +128,7 @@ export default class SvgCubeVisualizer {
   }
 
   private composeFacelet (face: Face, i: number, j: number, distance: number, color: Color): HandySVGElement {
-    const points = this.cube[face][i][j].points
+    const points = this.cube.getSticker(face, i, j)
       .map(p => p.to2dString(distance)).join(' ')
     return SvgBuilder.element('polygon')
       .addClass('facelet')
@@ -141,24 +140,22 @@ export default class SvgCubeVisualizer {
   }
 
   private composeBody (distance: number): HandySVGElement {
-    const [corners, vertices] = (this.cube as GeometricCube).silhouette(distance)
-
+    const lines = this.cube.silhouette(distance)
     const data: string[] = []
 
-    const move = vertices[vertices.length - 1].edgeEndpoints[corners[0]]
-    data.push('M' + move.to2dString(distance))
-    for (let i = 0; i < corners.length; i++) {
-      const prev = (i - 1 + corners.length) % corners.length
-      const next = (i + 1 + corners.length) % corners.length
-      const curveStart = vertices[i].edgeEndpoints[corners[prev]]
-      const curveEnd = vertices[i].edgeEndpoints[corners[next]]
-      const control1 = Point.mid(curveStart, vertices[i].corner, 0.55228475)
-      const control2 = Point.mid(curveEnd, vertices[i].corner, 0.55228475)
-      data.push('L' + curveStart.to2dString(distance))
-      data.push('C' +
-        control1.to2dString(distance) + ' ' +
-        control2.to2dString(distance) + ' ' +
-        curveEnd.to2dString(distance))
+    data.push('M' + lines[0][0].to2dString(distance))
+    for (let i = 0; i < lines.length; i++) {
+      const curr = lines[i]
+      const next = lines[(i + 1) % lines.length]
+      for (let i = 1; i < curr.length; i++) {
+        data.push('L' + curr[i].to2dString(distance))
+      }
+      data.push(composeCurve(
+        [curr[curr.length - 2], curr[curr.length - 1]],
+        [next[0], next[1]],
+        distance,
+        this.view === 'normal' ? 0.55228475 : 0.8
+      ))
     }
     data.push('z')
 
@@ -171,59 +168,19 @@ export default class SvgCubeVisualizer {
       })
   }
 
-  private composeLastLayer (distance: number): HandySVGElement {
-    const outlines = (this.cube as GeometricLastLayer).sideFaceOutlines
-    const data: string[] = []
-
-    for (let i = 0; i < 4; i++) {
-      const prev = (i - 1 + 4) % 4
-      const next = (i + 1 + 4) % 4
-
-      const prevLeftLine: Line = [outlines[prev].leftTip[2].project(distance), outlines[prev].leftBase.project(distance)]
-      const currRightLine: Line = [outlines[i].rightTip[0].project(distance), outlines[i].rightBase.project(distance)]
-      const rightInter = intersection(prevLeftLine, currRightLine)
-      data.push('L' + rightInter.map(p => p.toFixed(4)).join(','))
-
-      const rightCurveStart = outlines[i].rightTip[0]
-      data.push('L' + rightCurveStart.to2dString(distance))
-
-      const rightCurveEnd = outlines[i].rightTip[2]
-      const rightControl1 = Point.mid(rightCurveStart, outlines[i].rightTip[1], 0.2)
-      const rightControl2 = Point.mid(rightCurveEnd, outlines[i].rightTip[1], 0.2)
-      data.push('C' +
-        rightControl1.to2dString(distance) + ' ' +
-        rightControl2.to2dString(distance) + ' ' +
-        rightCurveEnd.to2dString(distance))
-
-      const leftCurveStart = outlines[i].leftTip[0]
-      data.push('L' + leftCurveStart.to2dString(distance))
-
-      const leftCurveEnd = outlines[i].leftTip[2]
-      const leftControl1 = Point.mid(leftCurveStart, outlines[i].leftTip[1], 0.2)
-      const leftControl2 = Point.mid(leftCurveEnd, outlines[i].leftTip[1], 0.2)
-      data.push('C' +
-        leftControl1.to2dString(distance) + ' ' +
-        leftControl2.to2dString(distance) + ' ' +
-        leftCurveEnd.to2dString(distance))
-
-      const currLeftLine: Line = [outlines[i].leftTip[2].project(distance), outlines[i].leftBase.project(distance)]
-      const nextRightLine: Line = [outlines[next].rightTip[0].project(distance), outlines[next].rightBase.project(distance)]
-      const leftInter = intersection(currLeftLine, nextRightLine)
-      data.push('L' + leftInter.map(p => p.toFixed(4)).join(','))
-    }
-    data.push('z')
-    data[0] = data[0].replace('L', 'M')
-
-    return SvgBuilder.element('path')
-    .addClass('body')
-    .attributes({
-      fill: this.cubeColor.hex(),
-      opacity: this.cubeColor.alpha(),
-      d: data.join(' ')
-    })
-  }
-
   private composeArrows (face: number): HandySVGElement {
     return new HandySVGElement('path')
   }
+}
+
+function composeCurve (line1: [Point, Point], line2: [Point, Point], distance: number, ratio: number): string {
+  const line2d1 = line1.map(p => p.project(distance)) as Line2
+  const line2d2 = line2.map(p => p.project(distance)) as Line2
+  const intersect = intersection(line2d1, line2d2)
+  const control1 = midPoint(line2d1[1], intersect, ratio)
+  const control2 = midPoint(line2d2[0], intersect, ratio)
+  return 'C' +
+    control1.map(p => p.toFixed(4)).join(',') + ' ' +
+    control2.map(p => p.toFixed(4)).join(',') + ' ' +
+    line2[0].to2dString(distance)
 }

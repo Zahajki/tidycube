@@ -2,18 +2,20 @@ export type Axis = 'x' | 'y' | 'z'
 
 export type Rotation = [Axis, number]
 
-function deg2rad (degree: number) {
-  return Math.PI * degree / 180
-}
+export type Line = [Point, Point]
+export type Polyline = Point[]
+
+export type Point2 = [number, number]
+export type Line2 = [Point2, Point2]
 
 export class Point {
   constructor (public x: number, public y: number, public z: number) {}
 
   static mid (p1: Point, p2: Point, ratio: number): Point {
     return new Point(
-      ratio * p1.x + (1 - ratio) * p2.x,
-      ratio * p1.y + (1 - ratio) * p2.y,
-      ratio * p1.z + (1 - ratio) * p2.z
+      (1 - ratio) * p1.x + ratio * p2.x,
+      (1 - ratio) * p1.y + ratio * p2.y,
+      (1 - ratio) * p1.z + ratio * p2.z
     )
   }
 
@@ -21,7 +23,7 @@ export class Point {
     return new Point(this.x, this.y, this.z)
   }
 
-  translate (x: number, y?: number, z?: number): Point {
+  translate (x: number, y?: number, z?: number): this {
     if (typeof y === 'undefined') y = x
     if (typeof z === 'undefined') z = y
     this.x += x
@@ -30,19 +32,27 @@ export class Point {
     return this
   }
 
-  rotate (...rotations: Rotation[]): Point {
+  scale (factor: number): this {
+    this.x *= factor
+    this.y *= factor
+    this.z *= factor
+    return this
+  }
+
+  rotate (...rotations: Rotation[]): this {
     return rotations.reduce((self, rotation) => {
       const { x, y, z } = self
       const axis = rotation[0]
       const angle = Math.PI * rotation[1] / 180
+      // https://www.siggraph.org/education/materials/HyperGraph/modeling/mod_tran/3drota.htm
       switch (axis) {
         case 'x':
-          self.z = z * Math.cos(angle) - y * Math.sin(angle)
-          self.y = z * Math.sin(angle) + y * Math.cos(angle)
+          self.y = y * Math.cos(angle) - z * Math.sin(angle)
+          self.z = y * Math.sin(angle) + z * Math.cos(angle)
           break
         case 'y':
-          self.x = x * Math.cos(angle) + z * Math.sin(angle)
-          self.z = -x * Math.sin(angle) + z * Math.cos(angle)
+          self.z = z * Math.cos(angle) - x * Math.sin(angle)
+          self.x = z * Math.sin(angle) + x * Math.cos(angle)
           break
         case 'z':
           self.x = x * Math.cos(angle) - y * Math.sin(angle)
@@ -53,13 +63,14 @@ export class Point {
     }, this)
   }
 
-  project (distance: number): [number, number] {
+  project (distance: number): Point2 {
     if (distance === Infinity) {
       return [this.x, this.y]
     }
+    // http://slideplayer.com/slide/8612932/
     return [
-      this.x * distance / (this.z + distance),
-      this.y * distance / (this.z + distance)
+      distance * this.x / (distance - this.z),
+      distance * this.y / (distance - this.z)
     ]
   }
 
@@ -68,12 +79,26 @@ export class Point {
   }
 }
 
+export function midPoint (p1: Point2, p2: Point2, ratio: number): Point2 {
+  return [
+    (1 - ratio) * p1[0] + ratio * p2[0],
+    (1 - ratio) * p1[1] + ratio * p2[1]]
+}
+
 // https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
-export function intersection (l1: [[number, number], [number, number]], l2: [[number, number], [number, number]]): [number, number] {
+export function intersection (l1: Line2, l2: Line2): Point2 {
   const [[x1, y1], [x2, y2]] = l1
   const [[x3, y3], [x4, y4]] = l2
   const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
   const xNumer = (x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)
   const yNumer = (x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)
   return [xNumer / denom, yNumer / denom]
+}
+
+// https://math.stackexchange.com/a/274728
+export function onRightSide (line: Line2, point: Point2): boolean {
+  const [[x1, y1], [x2, y2]] = line
+  const [x, y] = point
+  const d = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1)
+  return d > 0
 }
