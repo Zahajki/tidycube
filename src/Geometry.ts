@@ -8,6 +8,8 @@ export type Polyline = Point[]
 export type Point2 = [number, number]
 export type Line2 = [Point2, Point2]
 
+export const axes: Axis[] = ['x', 'y', 'z']
+
 export class Point {
   constructor (public x: number, public y: number, public z: number) {}
 
@@ -72,6 +74,14 @@ export class Point {
       distance * this.x / (distance - this.z),
       distance * this.y / (distance - this.z)
     ]
+  }
+
+  axisOfMaxAbs (): Axis {
+    return axes
+      .map(a => [a, Math.abs(this[a])] as [Axis, number])
+      .reduce((prev, curr) => {
+        return prev[1] > curr[1] ? prev : curr
+      })[0]
   }
 
   to2dString (distance: number): string {

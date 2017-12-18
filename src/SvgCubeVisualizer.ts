@@ -1,11 +1,11 @@
 import SvgBuilder, { HandySVGSVGElement, HandySVGElement } from './SvgBuilder'
 import { Rotation, Point, intersection, Line2, midPoint } from './Geometry'
-import { Face } from './GeometricCubeBase'
+import { Face, Facelet } from './GeometricCubeBase'
 import { GeometricCube } from './GeometricCube'
 import * as Color from 'color'
 import { GeometricLastLayer } from './GeometricLastLayer'
 
-export class Rectangle {
+class Rectangle {
   constructor (public x: number, public y: number, public width: number, public height: number) {}
 
   toString (): string {
@@ -13,10 +13,12 @@ export class Rectangle {
   }
 }
 
+export type Arrow = [Facelet[], 'none' | 'start' | 'end' | 'both', Color]
+
 export default class SvgCubeVisualizer {
   private cubeColor: Color
   private faceletColors: Color[][][]
-  private arrows: any[]
+  private arrows: Arrow[]
 
   private cube: GeometricCube | GeometricLastLayer
 
@@ -33,7 +35,7 @@ export default class SvgCubeVisualizer {
     backgroundColor: Color | undefined,
     cubeColor: Color,
     faceletColors: Color[][][],
-    arrows: any[]
+    arrows: Arrow[]
   ): HandySVGSVGElement {
     this.cubeColor = cubeColor
     this.faceletColors = faceletColors
@@ -54,6 +56,11 @@ export default class SvgCubeVisualizer {
 
     const svg = SvgBuilder.create(imageSize, imageSize, viewBox + '')
       .addClass('visualcube')
+      .append(SvgBuilder.element('defs').append(SvgBuilder.element('marker')
+        .attributes({
+          id: 'arrow'
+        })
+    ))
     const container = SvgBuilder.element('g')
       .attributes({
         transform: 'scale(1, -1)'
@@ -106,7 +113,7 @@ export default class SvgCubeVisualizer {
         })
         .appendTo(container)
       for (let i = 0; i < this.arrows.length; i++) {
-        g.append(this.composeArrows(i))
+        g.append(this.composeArrow(this.arrows[i], distance))
       }
     }
 
@@ -121,14 +128,14 @@ export default class SvgCubeVisualizer {
         if (this.view !== 'normal' && face !== Face.U && face !== Face.D) {
           jay = this.dimension - 1
         }
-        polygons.push(this.composeFacelet(face, i, jay, distance, this.faceletColors[face][i][jay]))
+        polygons.push(this.composeFacelet([face, i, jay], distance, this.faceletColors[face][i][jay]))
       }
     }
     return SvgBuilder.element('g').addClass('face').append(polygons)
   }
 
-  private composeFacelet (face: Face, i: number, j: number, distance: number, color: Color): HandySVGElement {
-    const points = this.cube.getSticker(face, i, j)
+  private composeFacelet (facelet: Facelet, distance: number, color: Color): HandySVGElement {
+    const points = this.cube.getSticker(facelet)
       .map(p => p.to2dString(distance)).join(' ')
     return SvgBuilder.element('polygon')
       .addClass('facelet')
@@ -168,8 +175,25 @@ export default class SvgCubeVisualizer {
       })
   }
 
-  private composeArrows (face: number): HandySVGElement {
-    return new HandySVGElement('path')
+  private composeArrow (arrow: Arrow, distance: number): HandySVGElement {
+    const data = []
+    const facelets = arrow[0]
+    data.push('M' +
+      this.cube.getStickerCenter(facelets[0])
+        .to2dString(distance))
+    for (let i = 1; i < facelets.length; i++) {
+      if (facelets[i - 1][0] !== facelets[i][0]) {
+        data.push('L' + this.cube.bentPoint(facelets[i - 1], facelets[i]).to2dString(distance))
+      }
+      data.push('L' + this.cube.getStickerCenter(facelets[i]).to2dString(distance))
+    }
+    // data.push('z')
+    return SvgBuilder.element('path')
+      .attributes({
+        fill: 'none',
+        stroke: arrow[2],
+        d: data.join(' ')
+      })
   }
 }
 

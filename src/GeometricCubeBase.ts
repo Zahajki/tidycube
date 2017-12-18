@@ -1,4 +1,5 @@
-import { Rotation, Point, Polyline, Point2, onRightSide } from './Geometry'
+import { Axis, axes, Rotation, Point, Polyline, Point2, onRightSide } from './Geometry'
+import difference = require('lodash/difference')
 
 export const STICKER_MARGIN = 0.075
 export const EXTRA_MARGIN = 0.02
@@ -9,6 +10,7 @@ export enum Corner {
 export enum Face {
   U = 0, R, F, D, L, B
 }
+export type Facelet = [Face, number, number]
 
 export const rotationOntoFace: { [f: number]: Rotation[] } = {
   0 /* U */: [['x', -90]],
@@ -28,7 +30,8 @@ export class GeometricCubeBase {
     this.rotations.push(...rotations)
   }
 
-  getSticker (face: Face, i: number, j: number): Point[] {
+  getSticker (facelet: Facelet): Point[] {
+    const [face, i , j] = facelet
     const sticker: [Point2, Point2, Point2, Point2] = [
       // align margined square on F face, bottom-left most facelet
       [STICKER_MARGIN + i, STICKER_MARGIN + j],
@@ -41,8 +44,13 @@ export class GeometricCubeBase {
         .rotate(...this.rotations))
   }
 
+  getStickerCenter (facelet: Facelet): Point {
+    return this.getUnrotatedStickerCenter(facelet)
+      .rotate(...this.rotations)
+  }
+
   facingFront (face: Face, distance: number): boolean {
-    const sticker = this.getSticker(face, 0, 0)
+    const sticker = this.getSticker([face, 0, 0])
     const lineS = sticker[0].project(distance)
     const lineE = sticker[1].project(distance)
     const point = sticker[2].project(distance)
@@ -53,10 +61,34 @@ export class GeometricCubeBase {
     return []
   }
 
+  bentPoint (facelet1: Facelet, facelet2: Facelet): Point {
+    const p1 = this.getUnrotatedStickerCenter(facelet1)
+    console.log(p1)
+    const p2 = this.getUnrotatedStickerCenter(facelet2)
+    console.log(p2)
+    const s = p1.axisOfMaxAbs()
+    const t = p2.axisOfMaxAbs()
+    const u = difference(axes, [s, t])[0] as Axis
+    console.log(`s${s} t${t} u${u}`)
+    const a = Math.abs(p2[t] - p1[t])
+    const b = Math.abs(p1[s] - p2[s])
+    const p = new Point(0, 0, 0)
+    p[s] = p1[s]
+    p[t] = p2[t]
+    p[u] = (b * p1[u] + a * p2[u]) / (a + b)
+    console.log(p)
+    return p.rotate(...this.rotations)
+  }
+
   protected faceShifter (face: Face, point: Point2): Point {
     const half = this.dimension / 2
     return new Point(point[0], point[1], 0)
       .translate(-half, -half, half)
       .rotate(...rotationOntoFace[face])
+  }
+
+  private getUnrotatedStickerCenter (facelet: Facelet): Point {
+    const [face, i , j] = facelet
+    return this.faceShifter(face, [0.5 + i, 0.5 + j])
   }
 }
