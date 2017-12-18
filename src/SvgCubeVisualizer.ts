@@ -1,5 +1,5 @@
 import SvgBuilder, { HandySVGSVGElement, HandySVGElement } from './SvgBuilder'
-import { Rotation, Point, intersection, Line2, midPoint } from './Geometry'
+import { Rotation, Point, intersection, Line2, midPoint, angleBetween } from './Geometry'
 import { Face, Facelet } from './GeometricCubeBase'
 import { GeometricCube } from './GeometricCube'
 import * as Color from 'color'
@@ -54,13 +54,37 @@ export default class SvgCubeVisualizer {
       1.8 * this.dimension,
       1.8 * this.dimension)
 
+    const defs = SvgBuilder.element('defs')
+    for (let i = 0; i < arrows.length; i++) {
+      const arrowStart = SvgBuilder.element('marker').attributes({
+        id: 'arrowStart' + i,
+        refX: 2.3383 - 0.8,
+        refY: 1.35,
+        orient: 'auto'
+      }).append(SvgBuilder.element('polygon')
+        .attributes({
+          fill: arrows[i][2].hex(),
+          opacity: arrows[i][2].alpha(),
+          points: '2.3383,0 0,1.35 2.3383,2.7'
+        }))
+      const arrowEnd = SvgBuilder.element('marker').attributes({
+        id: 'arrowEnd' + i,
+        refX: 0.8,
+        refY: 1.35,
+        orient: 'auto'
+      }).append(SvgBuilder.element('polygon')
+        .attributes({
+          fill: arrows[i][2].hex(),
+          opacity: arrows[i][2].alpha(),
+          points: '0,0 2.3383,1.35 0,2.7'
+        }))
+      defs.append([arrowStart, arrowEnd])
+    }
+
     const svg = SvgBuilder.create(imageSize, imageSize, viewBox + '')
       .addClass('visualcube')
-      .append(SvgBuilder.element('defs').append(SvgBuilder.element('marker')
-        .attributes({
-          id: 'arrow'
-        })
-    ))
+      .append(defs)
+
     const container = SvgBuilder.element('g')
       .attributes({
         transform: 'scale(1, -1)'
@@ -83,11 +107,9 @@ export default class SvgCubeVisualizer {
     }
 
     // backside facelets
-    if (this.cubeColor.alpha() < 1) {
-      for (let f = 0; f < 6; f++) {
-        if (!this.cube.facingFront(f, distance)) {
-          container.append(this.composeFace(f, distance))
-        }
+    for (let f = 0; f < 6; f++) {
+      if (!this.cube.facingFront(f, distance)) {
+        container.append(this.composeFace(f, distance))
       }
     }
 
@@ -101,19 +123,14 @@ export default class SvgCubeVisualizer {
       }
     }
 
-    // Draw Arrows
+    // arrows
     if (this.arrows.length > 0) {
       const arrowWidth = 0.12 / this.dimension
       let g = SvgBuilder.element('g')
-        .styles({
-          opacity: 1,
-          strokeOpacity: 1,
-          strokeWidth: arrowWidth,
-          strokeLinejoin: 'round'
-        })
+        .addClass('arrows')
         .appendTo(container)
       for (let i = 0; i < this.arrows.length; i++) {
-        g.append(this.composeArrow(this.arrows[i], distance))
+        g.append(this.composeArrow(this.arrows[i], i, distance))
       }
     }
 
@@ -160,8 +177,7 @@ export default class SvgCubeVisualizer {
       data.push(composeCurve(
         [curr[curr.length - 2], curr[curr.length - 1]],
         [next[0], next[1]],
-        distance,
-        this.view === 'normal' ? 0.55228475 : 0.8
+        distance
       ))
     }
     data.push('z')
@@ -175,7 +191,7 @@ export default class SvgCubeVisualizer {
       })
   }
 
-  private composeArrow (arrow: Arrow, distance: number): HandySVGElement {
+  private composeArrow (arrow: Arrow, i: number, distance: number): HandySVGElement {
     const data = []
     const facelets = arrow[0]
     data.push('M' +
@@ -188,19 +204,37 @@ export default class SvgCubeVisualizer {
       data.push('L' + this.cube.getStickerCenter(facelets[i]).to2dString(distance))
     }
     // data.push('z')
-    return SvgBuilder.element('path')
+    const arrowElem = SvgBuilder.element('path')
+      .addClass('arrow')
       .attributes({
         fill: 'none',
         stroke: arrow[2],
+        'stroke-width': 0.12,
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'markerUnits': 'strokeWidth',
         d: data.join(' ')
       })
+    if (arrow[1] === 'start') {
+      arrowElem.attributes({ 'marker-start': `url(#arrowStart${i})` })
+    } else if (arrow[1] === 'end') {
+      arrowElem.attributes({ 'marker-end': `url(#arrowEnd${i})` })
+    } else if (arrow[1] === 'both') {
+      arrowElem.attributes({
+        'marker-start': `url(#arrowStart${i})`,
+        'marker-end': `url(#arrowEnd${i})`
+      })
+    }
+    return arrowElem
   }
 }
 
-function composeCurve (line1: [Point, Point], line2: [Point, Point], distance: number, ratio: number): string {
+function composeCurve (line1: [Point, Point], line2: [Point, Point], distance: number): string {
   const line2d1 = line1.map(p => p.project(distance)) as Line2
   const line2d2 = line2.map(p => p.project(distance)) as Line2
   const intersect = intersection(line2d1, line2d2)
+  // http://d.hatena.ne.jp/shspage/20140625/1403702735
+  const ratio = (4 / 3) * Math.tan(angleBetween(line2d1, line2d2) / 4)
   const control1 = midPoint(line2d1[1], intersect, ratio)
   const control2 = midPoint(line2d2[0], intersect, ratio)
   return 'C' +

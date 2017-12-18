@@ -21,7 +21,7 @@ export const rotationOntoFace: { [f: number]: Rotation[] } = {
   5 /* B */: [['y', 180]]
 }
 
-export class GeometricCubeBase {
+export abstract class GeometricCubeBase {
   protected rotations: Rotation[] = []
 
   constructor (public dimension: number) {}
@@ -57,26 +57,20 @@ export class GeometricCubeBase {
     return onRightSide([lineS, lineE], point)
   }
 
-  silhouette (distance: number): Polyline[] {
-    return []
-  }
+  abstract silhouette (distance: number): Polyline[]
 
   bentPoint (facelet1: Facelet, facelet2: Facelet): Point {
     const p1 = this.getUnrotatedStickerCenter(facelet1)
-    console.log(p1)
     const p2 = this.getUnrotatedStickerCenter(facelet2)
-    console.log(p2)
     const s = p1.axisOfMaxAbs()
     const t = p2.axisOfMaxAbs()
     const u = difference(axes, [s, t])[0] as Axis
-    console.log(`s${s} t${t} u${u}`)
     const a = Math.abs(p2[t] - p1[t])
     const b = Math.abs(p1[s] - p2[s])
     const p = new Point(0, 0, 0)
     p[s] = p1[s]
     p[t] = p2[t]
     p[u] = (b * p1[u] + a * p2[u]) / (a + b)
-    console.log(p)
     return p.rotate(...this.rotations)
   }
 

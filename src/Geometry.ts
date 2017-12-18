@@ -1,3 +1,5 @@
+const wrapAngle: (angle: number) => number = require('normalize-range').curry(0, Math.PI).wrap
+
 export type Axis = 'x' | 'y' | 'z'
 
 export type Rotation = [Axis, number]
@@ -12,14 +14,6 @@ export const axes: Axis[] = ['x', 'y', 'z']
 
 export class Point {
   constructor (public x: number, public y: number, public z: number) {}
-
-  static mid (p1: Point, p2: Point, ratio: number): Point {
-    return new Point(
-      (1 - ratio) * p1.x + ratio * p2.x,
-      (1 - ratio) * p1.y + ratio * p2.y,
-      (1 - ratio) * p1.z + ratio * p2.z
-    )
-  }
 
   clone (): Point {
     return new Point(this.x, this.y, this.z)
@@ -63,6 +57,19 @@ export class Point {
       }
       return self
     }, this)
+  }
+
+  move (to: Point, distance: number): Point {
+    const delta = to.clone().translate(-this.x, -this.y, -this.z).normalize().scale(distance)
+    return this.translate(delta.x, delta.y, delta.z)
+  }
+
+  normalize (): Point {
+    return this.scale(1 / this.magnitude())
+  }
+
+  magnitude (): number {
+    return Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2) + Math.pow(this.z, 2))
   }
 
   project (distance: number): Point2 {
@@ -111,4 +118,14 @@ export function onRightSide (line: Line2, point: Point2): boolean {
   const [x, y] = point
   const d = (x - x1) * (y2 - y1) - (y - y1) * (x2 - x1)
   return d > 0
+}
+
+// https://math.stackexchange.com/a/873400
+export function angleBetween (l1: Line2, l2: Line2): number {
+  const [a, b] = l1
+  const [c, d] = l2
+  const alpha0 = Math.atan2(a[1] - b[1], a[0] - b[0])
+  const alpha1 = Math.atan2(d[1] - c[1], d[0] - c[0])
+  const angle = wrapAngle(alpha1 - alpha0)
+  return angle <= Math.PI ? angle : 2 * Math.PI - angle
 }

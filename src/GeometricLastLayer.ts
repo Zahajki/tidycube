@@ -8,9 +8,9 @@ const SIDE_EXTRA_MARGIN = 0
 
 export class GeometricLastLayer extends GeometricCubeBase {
   silhouette (distance: number): Polyline[] {
-    const faces = [Face.R, Face.F, Face.L, Face.B]
+    const sideFaces = [Face.R, Face.F, Face.L, Face.B]
     const polylines: Polyline[] = []
-    for (let i = 0; i < faces.length; i++) {
+    sideFaces.forEach(face => {
       const right = [
         [this.dimension + SIDE_EXTRA_MARGIN, this.dimension - BOTTOM_EXTRA_MARGIN],
         [this.dimension + SIDE_EXTRA_MARGIN, this.dimension - 1 + STICKER_MARGIN]
@@ -23,11 +23,11 @@ export class GeometricLastLayer extends GeometricCubeBase {
         [-SIDE_EXTRA_MARGIN, this.dimension - 1 + STICKER_MARGIN],
         [-SIDE_EXTRA_MARGIN, this.dimension - BOTTOM_EXTRA_MARGIN]
       ]
-      const rightLine = shift(this, right, faces[i])
-      const bottomLine = shift(this, bottom, faces[i])
-      const leftLine = shift(this, left, faces[i])
+      const rightLine = shift(this, right, face)
+      const bottomLine = shift(this, bottom, face)
+      const leftLine = shift(this, left, face)
       polylines.push(rightLine, bottomLine, leftLine)
-    }
+    })
     return polylines
 
     function shift (self: GeometricLastLayer, points: number[][], face: Face): Polyline {

@@ -18,7 +18,7 @@ export class GeometricCube extends GeometricCubeBase {
     const corners2 = unitCorners.map(p => p
       .clone()
       .rotate(...this.rotations)
-      .project(distance))
+      .project(distance / this.dimension))
     const hull: Corner[] = convexHull(corners2)
 
     let result: [Point, Point][] = []
@@ -35,7 +35,6 @@ export class GeometricCube extends GeometricCubeBase {
       unitCorners[c].clone()
         .scale(this.dimension + 2 * EXTRA_MARGIN)
         .rotate(...this.rotations))
-    return Point.mid(nP, fP,
-      (STICKER_MARGIN + EXTRA_MARGIN) / (this.dimension + 2 * EXTRA_MARGIN))
+    return nP.move(fP, STICKER_MARGIN + EXTRA_MARGIN)
   }
 }
