@@ -1,6 +1,6 @@
 import SvgBuilder, { HandySVGSVGElement, HandySVGElement } from './SvgBuilder'
 import { Rotation, midPoint, angleBetween, Point2 } from './Geometry'
-import { Face, Facelet } from './GeometricCubeBase'
+import { Face, Facelet, RoundedVertex, STICKER_MARGIN } from './GeometricCubeBase'
 import { GeometricCube } from './GeometricCube'
 import * as Color from 'color'
 import { GeometricLastLayer } from './GeometricLastLayer'
@@ -17,7 +17,12 @@ class Rectangle {
   }
 }
 
-export type Arrow = [Facelet[], 'none' | 'start' | 'end' | 'both', Color]
+export type Arrow = [
+  Facelet[],
+  'none' | 'start' | 'end' | 'both',
+  Color,
+  number /* startCutoff */, number /* endCutoff */
+]
 
 export default class SvgCubeVisualizer {
   private cubeColor: Color
@@ -165,27 +170,7 @@ export default class SvgCubeVisualizer {
 
   private composeBody (distance: number): HandySVGElement {
     const vertices = this.cube.silhouette(distance)
-    const data: string[] = []
-
-    const first = vertices[0]
-    const last = vertices[vertices.length - 1]
-    data.push('M' + first.vertex.clone().move(last.vertex, first.prevCutoff).to2dString(distance))
-    for (let i = 0; i < vertices.length; i++) {
-      const curr = vertices[i]
-      const prev = vertices[(i - 1 + vertices.length) % vertices.length]
-      const next = vertices[(i + 1) % vertices.length]
-      if (curr.prevCutoff !== 0 && curr.nextCutoff !== 0) {
-        const [a, b, c] = [
-          curr.vertex.clone().move(prev.vertex, curr.prevCutoff),
-          curr.vertex.clone(),
-          curr.vertex.clone().move(next.vertex, curr.nextCutoff)
-        ].map(p => p.project(distance))
-        data.push(composeCurve(a, b, c))
-      }
-      if (!curr.vertex.equals(next.vertex)) {
-        data.push('L' + next.vertex.clone().move(curr.vertex, next.prevCutoff).to2dString(distance))
-      }
-    }
+    const data = composePoly(vertices, distance)
     data.push('z')
 
     return SvgBuilder.element('path')
@@ -198,34 +183,41 @@ export default class SvgCubeVisualizer {
   }
 
   private composeArrow (arrow: Arrow, i: number, distance: number): HandySVGElement {
-    const data = []
-    const facelets = arrow[0]
-    data.push('M' +
-      this.cube.getStickerCenter(facelets[0])
-        .to2dString(distance))
-    for (let i = 1; i < facelets.length; i++) {
-      if (facelets[i - 1][0] !== facelets[i][0]) {
-        data.push('L' + this.cube.bentPoint(facelets[i - 1], facelets[i]).to2dString(distance))
+    const vertices: RoundedVertex[] = []
+    const [facelets, head, color, startCutoff, endCutoff] = arrow
+    for (let i = 0; i < facelets.length; i++) {
+      const cutOff =
+        i === 0 ? startCutoff :
+          i === facelets.length - 1 ? endCutoff : 0.5
+      vertices.push({
+        vertex: this.cube.getStickerCenter(facelets[i]),
+        prevCutoff: cutOff, nextCutoff: cutOff
+      })
+      if (i < facelets.length - 1 && facelets[i][0] !== facelets[i + 1][0]) {
+        vertices.push({
+          vertex: this.cube.bentPoint(facelets[i], facelets[i + 1]),
+          nextCutoff: STICKER_MARGIN, prevCutoff: STICKER_MARGIN
+        })
       }
-      data.push('L' + this.cube.getStickerCenter(facelets[i]).to2dString(distance))
     }
-    // data.push('z')
+    const data = composePoly(vertices, distance, 'polyline')
+
     const arrowElem = SvgBuilder.element('path')
       .addClass('arrow')
       .attributes({
         fill: 'none',
-        stroke: arrow[2],
+        stroke: color.hex(),
+        'stroke-pacity': color.alpha(),
         'stroke-width': 0.12,
         'stroke-linecap': 'round',
         'stroke-linejoin': 'round',
-        'markerUnits': 'strokeWidth',
         d: data.join(' ')
       })
-    if (arrow[1] === 'start') {
+    if (head === 'start') {
       arrowElem.attributes({ 'marker-start': `url(#arrowStart${i})` })
-    } else if (arrow[1] === 'end') {
+    } else if (head === 'end') {
       arrowElem.attributes({ 'marker-end': `url(#arrowEnd${i})` })
-    } else if (arrow[1] === 'both') {
+    } else if (head === 'both') {
       arrowElem.attributes({
         'marker-start': `url(#arrowStart${i})`,
         'marker-end': `url(#arrowEnd${i})`
@@ -235,16 +227,48 @@ export default class SvgCubeVisualizer {
   }
 }
 
+function composePoly (vertices: RoundedVertex[], distance: number, shape: 'polygon' | 'polyline' = 'polygon'): string[] {
+  const data: string[] = []
+
+  const first = vertices[0]
+  if (shape === 'polygon') {
+    const last = vertices[vertices.length - 1]
+    data.push('M' + first.vertex.clone().move(last.vertex, first.prevCutoff).to2dString(distance))
+  } else {
+    const second = vertices[1]
+    data.push('M' + first.vertex.clone().move(second.vertex, first.nextCutoff).to2dString(distance))
+  }
+  for (let i = 0; i < vertices.length; i++) {
+    const curr = vertices[i]
+    const prev = vertices[(i - 1 + vertices.length) % vertices.length]
+    const next = vertices[(i + 1) % vertices.length]
+    if (shape === 'polygon' || i < vertices.length - 1) {
+      if (curr.prevCutoff !== 0 && curr.nextCutoff !== 0 && (shape === 'polygon' || i !== 0)) {
+        const [a, b, c] = [
+          curr.vertex.clone().move(prev.vertex, curr.prevCutoff),
+          curr.vertex.clone(),
+          curr.vertex.clone().move(next.vertex, curr.nextCutoff)
+        ].map(p => p.project(distance))
+        data.push('C' + composeCurveData(a, b, c))
+      }
+      if (!curr.vertex.equals(next.vertex)) {
+        data.push('L' + next.vertex.clone().move(curr.vertex, next.prevCutoff).to2dString(distance))
+      }
+    }
+  }
+  return data
+}
+
 function toSvgString (p: Point2): string {
   return p.map(p => p.toFixed(4)).join(',')
 }
 
-function composeCurve (a: Point2, b: Point2, c: Point2): string {
+function composeCurveData (a: Point2, b: Point2, c: Point2): string {
   // https://math.stackexchange.com/a/873589
   const ratio = (4 / 3) * Math.tan(angleBetween(a, b, c) / 4)
   const control1 = midPoint(a, b, ratio)
   const control2 = midPoint(c, b, ratio)
-  return 'C' + [
+  return [
     toSvgString(control1),
     toSvgString(control2),
     toSvgString(c)].join(' ')

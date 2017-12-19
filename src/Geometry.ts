@@ -64,6 +64,7 @@ export class Point {
 
   move (to: Point, distance: number): this {
     if (this.equals(to)) return this
+    if (distance === 0) return this
     const delta = to.clone().translate(-this.x, -this.y, -this.z).normalize().scale(distance)
     return this.translate(delta.x, delta.y, delta.z)
   }

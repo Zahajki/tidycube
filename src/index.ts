@@ -25,17 +25,19 @@ const rotations: Rotation[] = [
 const arrows: Arrow[] = [
   [
       // facelets
-    [[1, 2, 1], [2, 1, 0]],
+    [[1, 2, 1], [2, 2, 0]],
     'both',
-    Color('gray')
+    Color('gray'),
+    0, 0
   ],
   [
-    [[0, 0, 0], [0, 2, 1]],
+    [[0, 0, 1], [0, 0, 0], [0, 2, 0], [0, 2, 1]],
     'end',
-    Color('skyblue')
+    Color('skyblue'),
+    -0.2, 0.3
   ]
 ]
 
-const svg = new SvgCubeVisualBuilder(3, 'plan')
+const svg = new SvgCubeVisualBuilder(3, 'normal')
   .visualize(rotations, 5, 512, Color('rgba(0, 255, 255, 0.0)'), Color('rgba(0, 12, 16, 0.9)'), faceletColors, arrows)
 writeFileSync('test.svg', prettifyXml(svg.xml))
