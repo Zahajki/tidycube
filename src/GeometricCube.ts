@@ -1,5 +1,5 @@
-import { GeometricCubeBase, Corner, STICKER_MARGIN, EXTRA_MARGIN } from './GeometricCubeBase'
-import { Point, Polyline } from './Geometry'
+import { GeometricCubeBase, RoundedVertex, STICKER_MARGIN, EXTRA_MARGIN } from './GeometricCubeBase'
+import { Point } from './Geometry'
 const convexHull: (points: [number, number][]) => number[] = require('monotone-convex-hull-2d')
 
 const unitCorners = [
@@ -14,27 +14,20 @@ const unitCorners = [
 ].map(p => p.translate(-0.5))
 
 export class GeometricCube extends GeometricCubeBase {
-  silhouette (distance: number): Polyline[] {
+  silhouette (distance: number): RoundedVertex[] {
     const corners2 = unitCorners.map(p => p
       .clone()
       .rotate(...this.rotations)
       .project(distance / this.dimension))
-    const hull: Corner[] = convexHull(corners2)
 
-    let result: [Point, Point][] = []
-    for (let i = 0; i < hull.length; i++) {
-      const curr = hull[i]
-      const next: Corner = hull[(i + 1) % hull.length]
-      result.push([this.edgeEndpoint(curr, next), this.edgeEndpoint(next, curr)])
-    }
-    return result
-  }
-
-  private edgeEndpoint (nearCorner: Corner, farCorner: Corner): Point {
-    const [nP, fP] = [nearCorner, farCorner].map(c =>
-      unitCorners[c].clone()
-        .scale(this.dimension + 2 * EXTRA_MARGIN)
-        .rotate(...this.rotations))
-    return nP.move(fP, STICKER_MARGIN + EXTRA_MARGIN)
+    return convexHull(corners2).map(corner => {
+      return {
+        vertex: unitCorners[corner].clone()
+          .scale(this.dimension + 2 * EXTRA_MARGIN)
+          .rotate(...this.rotations),
+        prevCutoff: STICKER_MARGIN + EXTRA_MARGIN,
+        nextCutoff: STICKER_MARGIN + EXTRA_MARGIN
+      }
+    })
   }
 }

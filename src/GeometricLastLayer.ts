@@ -1,5 +1,5 @@
-import { GeometricCubeBase, Face, rotationOntoFace, STICKER_MARGIN } from './GeometricCubeBase'
-import { Point, Polyline, Point2 } from './Geometry'
+import { GeometricCubeBase, Face, RoundedVertex, rotationOntoFace, STICKER_MARGIN } from './GeometricCubeBase'
+import { Point, Point2 } from './Geometry'
 
 const TILT_ANGLE = 34
 
@@ -7,37 +7,31 @@ const BOTTOM_EXTRA_MARGIN = 0.06
 const SIDE_EXTRA_MARGIN = 0
 
 export class GeometricLastLayer extends GeometricCubeBase {
-  silhouette (distance: number): Polyline[] {
+  silhouette (distance: number): RoundedVertex[] {
     const sideFaces = [Face.R, Face.F, Face.L, Face.B]
-    const polylines: Polyline[] = []
+    const vertices: RoundedVertex[] = []
     sideFaces.forEach(face => {
-      const right = [
-        [this.dimension + SIDE_EXTRA_MARGIN, this.dimension - BOTTOM_EXTRA_MARGIN],
-        [this.dimension + SIDE_EXTRA_MARGIN, this.dimension - 1 + STICKER_MARGIN]
-      ]
-      const bottom = [
-        [this.dimension - STICKER_MARGIN, this.dimension - 1 - BOTTOM_EXTRA_MARGIN],
-        [STICKER_MARGIN, this.dimension - 1 - BOTTOM_EXTRA_MARGIN]
-      ]
-      const left = [
-        [-SIDE_EXTRA_MARGIN, this.dimension - 1 + STICKER_MARGIN],
-        [-SIDE_EXTRA_MARGIN, this.dimension - BOTTOM_EXTRA_MARGIN]
-      ]
-      const rightLine = shift(this, right, face)
-      const bottomLine = shift(this, bottom, face)
-      const leftLine = shift(this, left, face)
-      polylines.push(rightLine, bottomLine, leftLine)
+      const rightBase = this.shift([this.dimension + SIDE_EXTRA_MARGIN, this.dimension], face)
+      const rightTip = this.shift([this.dimension + SIDE_EXTRA_MARGIN, this.dimension - 1 - BOTTOM_EXTRA_MARGIN], face)
+      const leftTip = this.shift([-SIDE_EXTRA_MARGIN, this.dimension - 1 - BOTTOM_EXTRA_MARGIN], face)
+      const leftBase = this.shift([-SIDE_EXTRA_MARGIN, this.dimension], face)
+      vertices.push(
+        { vertex: rightBase, prevCutoff: 0, nextCutoff: 0 },
+        { vertex: rightTip,
+          prevCutoff: BOTTOM_EXTRA_MARGIN + STICKER_MARGIN,
+          nextCutoff: SIDE_EXTRA_MARGIN + STICKER_MARGIN },
+        { vertex: leftTip,
+          prevCutoff: SIDE_EXTRA_MARGIN + STICKER_MARGIN,
+          nextCutoff: BOTTOM_EXTRA_MARGIN + STICKER_MARGIN },
+        { vertex: leftBase, prevCutoff: 0, nextCutoff: 0 }
+      )
     })
-    return polylines
-
-    function shift (self: GeometricLastLayer, points: number[][], face: Face): Polyline {
-      return (points as Point2[]).map(p => self.faceShifter(face, p).rotate(...self.rotations))
-    }
+    return vertices
   }
 
-  protected faceShifter (face: Face, point: Point2): Point {
+  protected alignToFace (face: Face, point: Point2): Point {
     if (face === Face.U || face === Face.D) {
-      return super.faceShifter(face, point)
+      return super.alignToFace(face, point)
     } else {
       const half = this.dimension / 2
       return new Point(point[0], point[1], 0)
@@ -46,5 +40,9 @@ export class GeometricLastLayer extends GeometricCubeBase {
         .translate(0, half, half)
         .rotate(...rotationOntoFace[face])
     }
+  }
+
+  private shift (point: [number, number], face: Face): Point {
+    return this.alignToFace(face, point).rotate(...this.rotations)
   }
 }

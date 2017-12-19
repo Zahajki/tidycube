@@ -1,11 +1,6 @@
-const wrapAngle: (angle: number) => number = require('normalize-range').curry(0, Math.PI).wrap
-
 export type Axis = 'x' | 'y' | 'z'
 
 export type Rotation = [Axis, number]
-
-export type Line = [Point, Point]
-export type Polyline = Point[]
 
 export type Point2 = [number, number]
 export type Line2 = [Point2, Point2]
@@ -15,8 +10,16 @@ export const axes: Axis[] = ['x', 'y', 'z']
 export class Point {
   constructor (public x: number, public y: number, public z: number) {}
 
+  static dot (a: Point, b: Point): number {
+    return a.x * b.x + a.y * b.y + a.z * b.z
+  }
+
   clone (): Point {
     return new Point(this.x, this.y, this.z)
+  }
+
+  equals (other: Point): boolean {
+    return this.x === other.x && this.y === other.y && this.z === other.z
   }
 
   translate (x: number, y?: number, z?: number): this {
@@ -59,17 +62,18 @@ export class Point {
     }, this)
   }
 
-  move (to: Point, distance: number): Point {
+  move (to: Point, distance: number): this {
+    if (this.equals(to)) return this
     const delta = to.clone().translate(-this.x, -this.y, -this.z).normalize().scale(distance)
     return this.translate(delta.x, delta.y, delta.z)
   }
 
-  normalize (): Point {
+  normalize (): this {
     return this.scale(1 / this.magnitude())
   }
 
   magnitude (): number {
-    return Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2) + Math.pow(this.z, 2))
+    return Math.sqrt(Point.dot(this, this))
   }
 
   project (distance: number): Point2 {
@@ -102,16 +106,6 @@ export function midPoint (p1: Point2, p2: Point2, ratio: number): Point2 {
     (1 - ratio) * p1[1] + ratio * p2[1]]
 }
 
-// https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection
-export function intersection (l1: Line2, l2: Line2): Point2 {
-  const [[x1, y1], [x2, y2]] = l1
-  const [[x3, y3], [x4, y4]] = l2
-  const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4)
-  const xNumer = (x1 * y2 - y1 * x2) * (x3 - x4) - (x1 - x2) * (x3 * y4 - y3 * x4)
-  const yNumer = (x1 * y2 - y1 * x2) * (y3 - y4) - (y1 - y2) * (x3 * y4 - y3 * x4)
-  return [xNumer / denom, yNumer / denom]
-}
-
 // https://math.stackexchange.com/a/274728
 export function onRightSide (line: Line2, point: Point2): boolean {
   const [[x1, y1], [x2, y2]] = line
@@ -120,12 +114,17 @@ export function onRightSide (line: Line2, point: Point2): boolean {
   return d > 0
 }
 
-// https://math.stackexchange.com/a/873400
-export function angleBetween (l1: Line2, l2: Line2): number {
-  const [a, b] = l1
-  const [c, d] = l2
-  const alpha0 = Math.atan2(a[1] - b[1], a[0] - b[0])
-  const alpha1 = Math.atan2(d[1] - c[1], d[0] - c[0])
-  const angle = wrapAngle(alpha1 - alpha0)
-  return angle <= Math.PI ? angle : 2 * Math.PI - angle
+// https://math.stackexchange.com/a/361419
+export function angleBetween (a: Point2, b: Point2, c: Point2): number {
+  const ab: Point2 = [b[0] - a[0], b[1] - a[1]]
+  const bc: Point2 = [c[0] - b[0], c[1] - b[1]]
+  return Math.acos(dot(ab, bc) / norm(ab) * norm(bc))
+}
+
+function dot (a: Point2, b: Point2): number {
+  return a[0] * b[0] + a[1] * b[1]
+}
+
+function norm (a: Point2): number {
+  return Math.sqrt(dot(a, a))
 }

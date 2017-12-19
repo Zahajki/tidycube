@@ -1,4 +1,4 @@
-import { Axis, axes, Rotation, Point, Polyline, Point2, onRightSide } from './Geometry'
+import { Axis, axes, Rotation, Point, Point2, onRightSide } from './Geometry'
 import difference = require('lodash/difference')
 
 export const STICKER_MARGIN = 0.075
@@ -7,10 +7,17 @@ export const EXTRA_MARGIN = 0.02
 export enum Corner {
   URF = 0, UFL, ULB, UBR, DFR, DLF, DBL, DRB
 }
+
 export enum Face {
   U = 0, R, F, D, L, B
 }
 export type Facelet = [Face, number, number]
+
+export type RoundedVertex = {
+  vertex: Point,
+  prevCutoff: number,
+  nextCutoff: number
+}
 
 export const rotationOntoFace: { [f: number]: Rotation[] } = {
   0 /* U */: [['x', -90]],
@@ -40,7 +47,7 @@ export abstract class GeometricCubeBase {
       [1 - STICKER_MARGIN + i, STICKER_MARGIN + j]
     ]
     return sticker.map(p =>
-      this.faceShifter(face, p)
+      this.alignToFace(face, p)
         .rotate(...this.rotations))
   }
 
@@ -57,14 +64,14 @@ export abstract class GeometricCubeBase {
     return onRightSide([lineS, lineE], point)
   }
 
-  abstract silhouette (distance: number): Polyline[]
+  abstract silhouette (distance: number): RoundedVertex[]
 
   bentPoint (facelet1: Facelet, facelet2: Facelet): Point {
     const p1 = this.getUnrotatedStickerCenter(facelet1)
     const p2 = this.getUnrotatedStickerCenter(facelet2)
     const s = p1.axisOfMaxAbs()
     const t = p2.axisOfMaxAbs()
-    const u = difference(axes, [s, t])[0] as Axis
+    const u = difference(axes, [s, t])[0]
     const a = Math.abs(p2[t] - p1[t])
     const b = Math.abs(p1[s] - p2[s])
     const p = new Point(0, 0, 0)
@@ -74,7 +81,7 @@ export abstract class GeometricCubeBase {
     return p.rotate(...this.rotations)
   }
 
-  protected faceShifter (face: Face, point: Point2): Point {
+  protected alignToFace (face: Face, point: Point2): Point {
     const half = this.dimension / 2
     return new Point(point[0], point[1], 0)
       .translate(-half, -half, half)
@@ -83,6 +90,6 @@ export abstract class GeometricCubeBase {
 
   private getUnrotatedStickerCenter (facelet: Facelet): Point {
     const [face, i , j] = facelet
-    return this.faceShifter(face, [0.5 + i, 0.5 + j])
+    return this.alignToFace(face, [0.5 + i, 0.5 + j])
   }
 }

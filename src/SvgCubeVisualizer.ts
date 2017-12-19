@@ -1,5 +1,5 @@
 import SvgBuilder, { HandySVGSVGElement, HandySVGElement } from './SvgBuilder'
-import { Rotation, Point, intersection, Line2, midPoint, angleBetween } from './Geometry'
+import { Rotation, midPoint, angleBetween, Point2 } from './Geometry'
 import { Face, Facelet } from './GeometricCubeBase'
 import { GeometricCube } from './GeometricCube'
 import * as Color from 'color'
@@ -10,6 +10,10 @@ class Rectangle {
 
   toString (): string {
     return [this.x, this.y, this.width, this.height].join(' ')
+  }
+
+  toObject (): object {
+    return { x: this.x, y: this.y, width: this.width, height: this.height }
   }
 }
 
@@ -54,7 +58,12 @@ export default class SvgCubeVisualizer {
       1.8 * this.dimension,
       1.8 * this.dimension)
 
+    const svg = SvgBuilder.create(imageSize, imageSize, viewBox + '')
+      .addClass('visualcube')
+
+    // arrow marker
     const defs = SvgBuilder.element('defs')
+      .appendTo(svg)
     for (let i = 0; i < arrows.length; i++) {
       const arrowStart = SvgBuilder.element('marker').attributes({
         id: 'arrowStart' + i,
@@ -81,27 +90,21 @@ export default class SvgCubeVisualizer {
       defs.append([arrowStart, arrowEnd])
     }
 
-    const svg = SvgBuilder.create(imageSize, imageSize, viewBox + '')
-      .addClass('visualcube')
-      .append(defs)
-
     const container = SvgBuilder.element('g')
+      .addClass('cube')
       .attributes({
         transform: 'scale(1, -1)'
       })
       .appendTo(svg)
 
-      // background
+    // background
     if (backgroundColor) {
       SvgBuilder.element('rect')
         .addClass('background')
         .attributes({
           fill: backgroundColor.hex(),
           opacity: backgroundColor.alpha(),
-          x: viewBox.x,
-          y: viewBox.y,
-          width: viewBox.width,
-          height: viewBox.height
+          ...viewBox.toObject()
         })
         .appendTo(container)
     }
@@ -124,14 +127,11 @@ export default class SvgCubeVisualizer {
     }
 
     // arrows
-    if (this.arrows.length > 0) {
-      const arrowWidth = 0.12 / this.dimension
-      let g = SvgBuilder.element('g')
-        .addClass('arrows')
-        .appendTo(container)
-      for (let i = 0; i < this.arrows.length; i++) {
-        g.append(this.composeArrow(this.arrows[i], i, distance))
-      }
+    let g = SvgBuilder.element('g')
+      .addClass('arrows')
+      .appendTo(container)
+    for (let i = 0; i < this.arrows.length; i++) {
+      g.append(this.composeArrow(this.arrows[i], i, distance))
     }
 
     return svg
@@ -164,21 +164,27 @@ export default class SvgCubeVisualizer {
   }
 
   private composeBody (distance: number): HandySVGElement {
-    const lines = this.cube.silhouette(distance)
+    const vertices = this.cube.silhouette(distance)
     const data: string[] = []
 
-    data.push('M' + lines[0][0].to2dString(distance))
-    for (let i = 0; i < lines.length; i++) {
-      const curr = lines[i]
-      const next = lines[(i + 1) % lines.length]
-      for (let i = 1; i < curr.length; i++) {
-        data.push('L' + curr[i].to2dString(distance))
+    const first = vertices[0]
+    const last = vertices[vertices.length - 1]
+    data.push('M' + first.vertex.clone().move(last.vertex, first.prevCutoff).to2dString(distance))
+    for (let i = 0; i < vertices.length; i++) {
+      const curr = vertices[i]
+      const prev = vertices[(i - 1 + vertices.length) % vertices.length]
+      const next = vertices[(i + 1) % vertices.length]
+      if (curr.prevCutoff !== 0 && curr.nextCutoff !== 0) {
+        const [a, b, c] = [
+          curr.vertex.clone().move(prev.vertex, curr.prevCutoff),
+          curr.vertex.clone(),
+          curr.vertex.clone().move(next.vertex, curr.nextCutoff)
+        ].map(p => p.project(distance))
+        data.push(composeCurve(a, b, c))
       }
-      data.push(composeCurve(
-        [curr[curr.length - 2], curr[curr.length - 1]],
-        [next[0], next[1]],
-        distance
-      ))
+      if (!curr.vertex.equals(next.vertex)) {
+        data.push('L' + next.vertex.clone().move(curr.vertex, next.prevCutoff).to2dString(distance))
+      }
     }
     data.push('z')
 
@@ -229,16 +235,17 @@ export default class SvgCubeVisualizer {
   }
 }
 
-function composeCurve (line1: [Point, Point], line2: [Point, Point], distance: number): string {
-  const line2d1 = line1.map(p => p.project(distance)) as Line2
-  const line2d2 = line2.map(p => p.project(distance)) as Line2
-  const intersect = intersection(line2d1, line2d2)
-  // http://d.hatena.ne.jp/shspage/20140625/1403702735
-  const ratio = (4 / 3) * Math.tan(angleBetween(line2d1, line2d2) / 4)
-  const control1 = midPoint(line2d1[1], intersect, ratio)
-  const control2 = midPoint(line2d2[0], intersect, ratio)
-  return 'C' +
-    control1.map(p => p.toFixed(4)).join(',') + ' ' +
-    control2.map(p => p.toFixed(4)).join(',') + ' ' +
-    line2[0].to2dString(distance)
+function toSvgString (p: Point2): string {
+  return p.map(p => p.toFixed(4)).join(',')
+}
+
+function composeCurve (a: Point2, b: Point2, c: Point2): string {
+  // https://math.stackexchange.com/a/873589
+  const ratio = (4 / 3) * Math.tan(angleBetween(a, b, c) / 4)
+  const control1 = midPoint(a, b, ratio)
+  const control2 = midPoint(c, b, ratio)
+  return 'C' + [
+    toSvgString(control1),
+    toSvgString(control2),
+    toSvgString(c)].join(' ')
 }
