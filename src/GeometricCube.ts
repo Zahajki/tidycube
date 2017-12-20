@@ -72,7 +72,7 @@ export abstract class GeometricCubeBase {
 
   abstract silhouette (distance: number): RoundedVertex[]
 
-  arrow (arrow: GeometricArrow, distance: number): RoundedVertex[] {
+  arrow (arrow: GeometricArrow): RoundedVertex[] {
     const vertices: RoundedVertex[] = []
     const [facelets, startCutoff, endCutoff] = arrow
     for (let i = 0; i < facelets.length; i++) {

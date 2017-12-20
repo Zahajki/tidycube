@@ -4,7 +4,47 @@ import * as Color from 'color'
 const prettifyXml: (input: string, options?: {indent: number, newline: string}) => string = require('prettify-xml')
 import { writeFileSync } from 'fs'
 
-export default class VisualCube {
+export type Stage =
+  'solved' | 'f2l' | 'll'
+
+export interface Options {
+  imageSize: number,
+  layerCount: number,
+  view: 'normal' | 'plan',
+  stage: Stage,
+  rotations: Rotation[],
+  alg: string,
+  case_: string,
+  faceletColors: { 'U': Color[], 'R': Color[], 'F': Color[], 'D': Color[], 'L': Color[], 'B': Color[] },
+  faceletDefinition: any,
+  colorScheme: { 'U': Color, 'R': Color, 'F': Color, 'D': Color, 'L': Color, 'B': Color },
+  backgroundColor: Color | undefined,
+  bodyColor: Color,
+  distance: number,
+  arrows: Arrow[],
+  defaultArrowColor: Color
+}
+
+export default class TidyCube {
+  constructor ({
+  imageSize= 128,
+  layerCount= 3,
+  view= 'normal',
+  stage= 'solved',
+  rotations= [],
+  alg= '',
+  case_= '',
+  faceletColors= { 'U': [], 'R': [], 'F': [], 'D': [], 'L': [], 'B': [] },
+  faceletDefinition= undefined,
+  colorScheme= { 'U': Color('#FEFE00'), 'R': Color(), 'F': Color(), 'D': Color(), 'L': Color(), 'B': Color() },
+  backgroundColor= undefined,
+  bodyColor= Color('#000000'),
+  distance= 5,
+  arrows= [],
+  defaultArrowColor= Color('#808080')
+  }: Partial<Options>) {
+    console.log(layerCount)
+  }
 }
 
 const faceletColors = [

@@ -55,7 +55,7 @@ export default class SvgCubeVisualizer {
     // arrow marker
     SvgBuilder.element('defs')
       .appendTo(svg)
-      .append(this.createArrowMarker(arrows))
+      .append(...this.createArrowMarker(arrows))
 
     const container = SvgBuilder.element('g')
       .addClass('cube')
@@ -114,7 +114,7 @@ export default class SvgCubeVisualizer {
         polygons.push(this.createFacelet([face, i, jay], distance, faceletColors[face][i][jay]))
       }
     }
-    return SvgBuilder.element('g').addClass('face').append(polygons)
+    return SvgBuilder.element('g').addClass('face').append(...polygons)
   }
 
   private createFacelet (facelet: Facelet, distance: number, color: Color): HandySVGElement {
@@ -176,7 +176,7 @@ export default class SvgCubeVisualizer {
 
   private createArrow (arrow: Arrow, i: number, distance: number): HandySVGElement {
     const [geometricArrow, head, color] = arrow
-    const vertices = this.cube.arrow(geometricArrow, distance)
+    const vertices = this.cube.arrow(geometricArrow)
     const data = composePolyline(vertices, distance)
 
     const arrowElem = SvgBuilder.element('path')

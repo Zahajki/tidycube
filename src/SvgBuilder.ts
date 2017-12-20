@@ -62,14 +62,10 @@ export class HandySVGElement {
     return this
   }
 
-  append (children: HandySVGElement | HandySVGElement[]): this {
-    if (children instanceof Array) {
-      children.forEach(child => {
-        this.nativeElement.appendChild(child.nativeElement)
-      })
-    } else {
-      this.nativeElement.appendChild(children.nativeElement)
-    }
+  append (...children: HandySVGElement[]): this {
+    children.forEach(child => {
+      this.nativeElement.appendChild(child.nativeElement)
+    })
     return this
   }
 
