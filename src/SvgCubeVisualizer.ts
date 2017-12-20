@@ -1,9 +1,7 @@
 import SvgBuilder, { HandySVGSVGElement, HandySVGElement } from './SvgBuilder'
 import { Rotation, midPoint, angleBetween, Point2 } from './Geometry'
-import { Face, Facelet, RoundedVertex, STICKER_MARGIN } from './GeometricCubeBase'
-import { GeometricCube } from './GeometricCube'
+import { GeometricCube, GeometricLastLayer, Face, Facelet, RoundedVertex, STICKER_MARGIN } from './GeometricCube'
 import * as Color from 'color'
-import { GeometricLastLayer } from './GeometricLastLayer'
 
 class Rectangle {
   constructor (public x: number, public y: number, public width: number, public height: number) {}
@@ -188,7 +186,7 @@ export default class SvgCubeVisualizer {
     for (let i = 0; i < facelets.length; i++) {
       const cutOff =
         i === 0 ? startCutoff :
-          i === facelets.length - 1 ? endCutoff : 0.5
+          i === facelets.length - 1 ? endCutoff : 0.5 - STICKER_MARGIN
       vertices.push({
         vertex: this.cube.getStickerCenter(facelets[i]),
         prevCutoff: cutOff, nextCutoff: cutOff
