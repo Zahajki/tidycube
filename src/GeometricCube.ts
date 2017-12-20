@@ -2,8 +2,8 @@ import { Axis, axes, Rotation, Point, Point2, onRightSide } from './Geometry'
 import difference = require('lodash/difference')
 const convexHull: (points: [number, number][]) => number[] = require('monotone-convex-hull-2d')
 
-export const STICKER_MARGIN = 0.075
-export const EXTRA_MARGIN = 0.02
+const STICKER_MARGIN = 0.075
+const EXTRA_MARGIN = 0.02
 
 export enum Corner {
   URF = 0, UFL, ULB, UBR, DFR, DLF, DBL, DRB
@@ -20,6 +20,12 @@ export type RoundedVertex = {
   prevCutoff: number,
   nextCutoff: number
 }
+
+export type GeometricArrow = [
+  Facelet[],
+  number /* startCutoff */,
+  number /* endCutoff */
+]
 
 export const rotationOntoFace: { [f: number]: Rotation[] } = {
   0 /* U */: [['x', -90]],
@@ -56,11 +62,6 @@ export abstract class GeometricCubeBase {
         .rotate(...this.rotations))
   }
 
-  getStickerCenter (facelet: Facelet): Point {
-    return this.getUnrotatedStickerCenter(facelet)
-      .rotate(...this.rotations)
-  }
-
   facingFront (face: Face, distance: number): boolean {
     const sticker = this.getSticker([face, 0, 0])
     const lineS = sticker[0].project(distance)
@@ -71,7 +72,40 @@ export abstract class GeometricCubeBase {
 
   abstract silhouette (distance: number): RoundedVertex[]
 
-  bentPoint (facelet1: Facelet, facelet2: Facelet): Point {
+  arrow (arrow: GeometricArrow, distance: number): RoundedVertex[] {
+    const vertices: RoundedVertex[] = []
+    const [facelets, startCutoff, endCutoff] = arrow
+    for (let i = 0; i < facelets.length; i++) {
+      const cutOff =
+        i === 0 ? startCutoff :
+          i === facelets.length - 1 ? endCutoff : 0.5 - STICKER_MARGIN
+      vertices.push({
+        vertex: this.getStickerCenter(facelets[i]),
+        prevCutoff: cutOff, nextCutoff: cutOff
+      })
+      if (i < facelets.length - 1 && facelets[i][0] !== facelets[i + 1][0]) {
+        vertices.push({
+          vertex: this.bentPoint(facelets[i], facelets[i + 1]),
+          nextCutoff: STICKER_MARGIN, prevCutoff: STICKER_MARGIN
+        })
+      }
+    }
+    return vertices
+  }
+
+  protected alignToFace (face: Face, point: Point2): Point {
+    const half = this.dimension / 2
+    return new Point(point[0], point[1], 0)
+      .translate(-half, -half, half)
+      .rotate(...rotationOntoFace[face])
+  }
+
+  private getStickerCenter (facelet: Facelet): Point {
+    return this.getUnrotatedStickerCenter(facelet)
+      .rotate(...this.rotations)
+  }
+
+  private bentPoint (facelet1: Facelet, facelet2: Facelet): Point {
     const p1 = this.getUnrotatedStickerCenter(facelet1)
     const p2 = this.getUnrotatedStickerCenter(facelet2)
     const s = p1.axisOfMaxAbs()
@@ -84,13 +118,6 @@ export abstract class GeometricCubeBase {
     p[t] = p2[t]
     p[u] = (b * p1[u] + a * p2[u]) / (a + b)
     return p.rotate(...this.rotations)
-  }
-
-  protected alignToFace (face: Face, point: Point2): Point {
-    const half = this.dimension / 2
-    return new Point(point[0], point[1], 0)
-      .translate(-half, -half, half)
-      .rotate(...rotationOntoFace[face])
   }
 
   private getUnrotatedStickerCenter (facelet: Facelet): Point {
@@ -120,15 +147,13 @@ export class GeometricCube extends GeometricCubeBase {
       .rotate(...this.rotations)
       .project(distance / this.dimension))
 
-    return convexHull(corners2).map(corner => {
-      return {
-        vertex: unitCorners[corner].clone()
-          .scale(this.dimension + 2 * EXTRA_MARGIN)
-          .rotate(...this.rotations),
-        prevCutoff: STICKER_MARGIN + EXTRA_MARGIN,
-        nextCutoff: STICKER_MARGIN + EXTRA_MARGIN
-      }
-    })
+    return convexHull(corners2).map(corner => ({
+      vertex: unitCorners[corner].clone()
+        .scale(this.dimension + 2 * EXTRA_MARGIN)
+        .rotate(...this.rotations),
+      prevCutoff: STICKER_MARGIN + EXTRA_MARGIN,
+      nextCutoff: STICKER_MARGIN + EXTRA_MARGIN
+    }))
   }
 }
 
@@ -139,25 +164,28 @@ const TILT_ANGLE = 34
 
 const BOTTOM_EXTRA_MARGIN = 0.06
 const SIDE_EXTRA_MARGIN = 0
+const BASE_ROUND = 0.05
 
 export class GeometricLastLayer extends GeometricCubeBase {
   silhouette (distance: number): RoundedVertex[] {
     const sideFaces = [Face.R, Face.F, Face.L, Face.B]
     const vertices: RoundedVertex[] = []
     sideFaces.forEach(face => {
-      const rightBase = this.shift([this.dimension + SIDE_EXTRA_MARGIN, this.dimension], face)
-      const rightTip = this.shift([this.dimension + SIDE_EXTRA_MARGIN, this.dimension - 1 - BOTTOM_EXTRA_MARGIN], face)
-      const leftTip = this.shift([-SIDE_EXTRA_MARGIN, this.dimension - 1 - BOTTOM_EXTRA_MARGIN], face)
-      const leftBase = this.shift([-SIDE_EXTRA_MARGIN, this.dimension], face)
+      const [rightBase, rightTip, leftTip/*, leftBase*/] = [
+        [this.dimension + SIDE_EXTRA_MARGIN, this.dimension],
+        [this.dimension + SIDE_EXTRA_MARGIN, this.dimension - 1 - BOTTOM_EXTRA_MARGIN],
+        [-SIDE_EXTRA_MARGIN, this.dimension - 1 - BOTTOM_EXTRA_MARGIN]
+        // [-SIDE_EXTRA_MARGIN, this.dimension]
+      ] .map(p => this.alignToFace(face, p as Point2).rotate(...this.rotations))
       vertices.push(
-        { vertex: rightBase, prevCutoff: 0, nextCutoff: 0 },
+        { vertex: rightBase, prevCutoff: BASE_ROUND, nextCutoff: BASE_ROUND },
         { vertex: rightTip,
           prevCutoff: BOTTOM_EXTRA_MARGIN + STICKER_MARGIN,
           nextCutoff: SIDE_EXTRA_MARGIN + STICKER_MARGIN },
         { vertex: leftTip,
           prevCutoff: SIDE_EXTRA_MARGIN + STICKER_MARGIN,
-          nextCutoff: BOTTOM_EXTRA_MARGIN + STICKER_MARGIN },
-        { vertex: leftBase, prevCutoff: 0, nextCutoff: 0 }
+          nextCutoff: BOTTOM_EXTRA_MARGIN + STICKER_MARGIN }
+        // { vertex: leftBase, prevCutoff: 0, nextCutoff: 0 }
       )
     })
     return vertices
@@ -174,9 +202,5 @@ export class GeometricLastLayer extends GeometricCubeBase {
         .translate(0, half, half)
         .rotate(...rotationOntoFace[face])
     }
-  }
-
-  private shift (point: [number, number], face: Face): Point {
-    return this.alignToFace(face, point).rotate(...this.rotations)
   }
 }

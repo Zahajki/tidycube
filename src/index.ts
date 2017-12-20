@@ -8,9 +8,9 @@ export default class VisualCube {
 }
 
 const faceletColors = [
-  [['magenta', 'yellow', 'yellow'], ['magenta', 'yellow', 'yellow'], ['yellow', 'yellow', 'yellow']],
-  [['magenta', 'red', 'red'], ['magenta', 'red', 'red'], ['red', 'red', 'red']],
-  [['magenta', 'blue', 'blue'], ['magenta', 'blue', 'blue'], ['blue', 'blue', 'blue']],
+  [['yellow', 'yellow', 'yellow'], ['yellow', 'yellow', 'yellow'], ['yellow', 'yellow', 'yellow']],
+  [['red', 'red', 'red'], ['red', 'red', 'red'], ['red', 'red', 'red']],
+  [['blue', 'blue', 'blue'], ['blue', 'blue', 'blue'], ['blue', 'blue', 'blue']],
   [['magenta', 'white', 'white'], ['magenta', 'white', 'white'], ['white', 'white', 'white']],
   [['magenta', 'orange', 'orange'], ['magenta', 'orange', 'orange'], ['orange', 'orange', 'orange']],
   [['magenta', 'green', 'green'], ['magenta', 'green', 'green'], ['green', 'green', 'green']]
@@ -25,16 +25,14 @@ const rotations: Rotation[] = [
 const arrows: Arrow[] = [
   [
       // facelets
-    [[1, 2, 1], [2, 2, 0]],
+    [[[1, 2, 1], [2, 1, 0]], 0, 0],
     'both',
-    Color('gray'),
-    0, 0
+    Color('gray')
   ],
   [
-    [[0, 0, 1], [0, 0, 0], [0, 2, 0], [0, 2, 1]],
+    [[[0, 0, 1], [0, 0, 0], [0, 2, 0], [0, 2, 1]], -0.2, 0.3],
     'end',
-    Color('skyblue'),
-    -0.2, 0.3
+    Color('gray')
   ]
 ]
 
