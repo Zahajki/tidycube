@@ -15,9 +15,9 @@ export enum Face {
 
 export type Facelet = [Face, number, number]
 
-export type RoundedVertex = {
-  vertex: Point,
-  prevCutoff: number,
+export interface RoundedVertex {
+  vertex: Point
+  prevCutoff: number
   nextCutoff: number
 }
 

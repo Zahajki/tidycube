@@ -105,13 +105,12 @@ export default class SvgCubeVisualizer {
 
   private createFace (face: Face, distance: number, faceletColors: Color[][][]): HandySVGElement {
     const polygons = []
-    for (let j = 0; j < this.dimension; j++) {
+    let j =
+      this.view === 'plan' && face !== Face.U && face !== Face.D ?
+      this.dimension - 1 : 0
+    for (; j < this.dimension; j++) {
       for (let i = 0; i < this.dimension; i ++) {
-        let jay = j
-        if (this.view !== 'normal' && face !== Face.U && face !== Face.D) {
-          jay = this.dimension - 1
-        }
-        polygons.push(this.createFacelet([face, i, jay], distance, faceletColors[face][i][jay]))
+        polygons.push(this.createFacelet([face, i, j], distance, faceletColors[face][i][j]))
       }
     }
     return SvgBuilder.element('g').addClass('face').append(...polygons)
@@ -146,7 +145,7 @@ export default class SvgCubeVisualizer {
   private createArrowMarker (arrows: Arrow[]): HandySVGElement[] {
     const markers: HandySVGElement[] = []
     for (let i = 0; i < arrows.length; i++) {
-      const color = arrows[i][2]
+      const [, head, color] = arrows[i]
       const arrowStart = SvgBuilder.element('marker').attributes({
         id: 'arrowStart' + i,
         refX: 2.3383 - 0.8,
@@ -169,7 +168,12 @@ export default class SvgCubeVisualizer {
           opacity: color.alpha(),
           points: '0,0 2.3383,1.35 0,2.7'
         }))
-      markers.push(arrowStart, arrowEnd)
+      if (head === 'start' || head === 'both') {
+        markers.push(arrowStart)
+      }
+      if (head === 'end' || head === 'both') {
+        markers.push(arrowEnd)
+      }
     }
     return markers
   }
@@ -207,8 +211,7 @@ export default class SvgCubeVisualizer {
 function composePolygon (vertices: RoundedVertex[], distance: number): string[] {
   const data: string[] = []
 
-  const first = vertices[0]
-  const last = vertices[vertices.length - 1]
+  const [last, first] = triplet(vertices, 0)
   data.push('M' + first.vertex.clone().move(last.vertex, first.prevCutoff).to2dString(distance))
   for (let i = 0; i < vertices.length; i++) {
     const [prev, curr, next] = triplet(vertices, i)
@@ -225,8 +228,7 @@ function composePolygon (vertices: RoundedVertex[], distance: number): string[] 
 function composePolyline (vertices: RoundedVertex[], distance: number): string[] {
   const data: string[] = []
 
-  const first = vertices[0]
-  const second = vertices[1]
+  const [, first, second] = triplet(vertices, 0)
   data.push('M' + first.vertex.clone().move(second.vertex, first.nextCutoff).to2dString(distance))
   for (let i = 0; i < vertices.length - 1; i++) {
     const [prev, curr, next] = triplet(vertices, i)
