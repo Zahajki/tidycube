@@ -23,14 +23,13 @@ export type Arrow = [
 
 export default class SvgCubeVisualizer {
   private cube: GeometricCube | GeometricLastLayer
+  private view: 'normal' | 'plan'
 
-  constructor (private dimension: number, private view: 'normal' | 'plan') {
-    this.cube = view === 'normal' ?
-      new GeometricCube(this.dimension) :
-      new GeometricLastLayer(this.dimension)
+  constructor (private dimension: number) {
   }
 
   visualize (
+    view: 'normal' | 'plan',
     rotations: Rotation[],
     distance: number,
     imageSize: number,
@@ -39,6 +38,10 @@ export default class SvgCubeVisualizer {
     faceletColors: Color[][][],
     arrows: Arrow[]
   ): HandySVGSVGElement {
+    this.cube = view === 'normal' ?
+      new GeometricCube(this.dimension) :
+      new GeometricLastLayer(this.dimension)
+
     distance *= this.dimension
 
     if (this.view === 'plan') {
