@@ -5,6 +5,7 @@ import * as Color from 'color'
 import fill = require('lodash/fill')
 import flatten = require('lodash/flatten')
 import assign = require('lodash/assign')
+
 const prettifyXml: (input: string, options?: {indent: number, newline: string}) => string = require('prettify-xml')
 import { writeFileSync } from 'fs'
 
@@ -56,7 +57,7 @@ export default class TidyCube {
     layerCount= 3,
     colorScheme= {}
   }: ConstructorOptions = {}) {
-    this.dimension = 3
+    this.dimension = layerCount
 
     assign(this.colorScheme, colorScheme)
 
@@ -111,28 +112,28 @@ export default class TidyCube {
       imageSize,
       backgroundColor ? Color(backgroundColor) : backgroundColor,
       Color(bodyColor),
-      this.destructFacelets(faceletsColor),
+      faceletsColor,
       arrows
     )
     return elem.xml
   }
 
-  private destructFacelets<T> (flat: T[]): T[][][] {
-    const result = [] as T[][][]
-    for (let face = 0; face < 6; face++) {
-      result[face] = []
-      for (let i = 0; i < 6; i++) {
-        result[face][i] = []
-        for (let j = 0; j < 6; j++) {
-          const index = face * this.dimension * this.dimension +
-          i +
-          (this.dimension - 1 - j) * this.dimension
-          result[face][i][j] = flat[index]
-        }
-      }
-    }
-    return result
-  }
+  // private structFacelets<T> (flat: T[]): T[][][] {
+  //   const result = [] as T[][][]
+  //   for (let face = 0; face < 6; face++) {
+  //     result[face] = []
+  //     for (let i = 0; i < 6; i++) {
+  //       result[face][i] = []
+  //       for (let j = 0; j < 6; j++) {
+  //         const index = face * this.dimension * this.dimension +
+  //         i +
+  //         (this.dimension - 1 - j) * this.dimension
+  //         result[face][i][j] = flat[index]
+  //       }
+  //     }
+  //   }
+  //   return result
+  // }
 
   private parseFaceletId (faceletId: string): number {
     const match = faceletId.match(/^([URFDLB])([0-9]+)/)
@@ -146,6 +147,13 @@ export default class TidyCube {
       return 'URFDLB'.split('').indexOf(face)
     }
   }
+
+  // private structArrow (arrowParam: ArrowParam): SvgArrow {
+  //   if (typeof arrowParam[0] === 'string') {
+  //     return arrowParam.map(faceletId => this.parseFaceletId(faceletId))
+  //   }
+  //   return
+  // }
 }
 
 //
@@ -157,17 +165,20 @@ const rots: Rotation[] = [
 ]
 
 const arrows: Arrow[] = [
-  [
-      // facelets
-    [[[1, 2, 1], [2, 1, 0]], 0, 0],
-    'both',
-    Color('gray')
-  ],
-  [
-    [[[0, 0, 1], [0, 0, 0], [0, 2, 0], [0, 2, 1]], -0.2, 0.3],
-    'end',
-    Color('gray')
-  ]
+  {
+    facelets: ['R5', 'F7'],
+    extendStart: 0,
+    extendEnd: 0,
+    marker: 'both',
+    color: Color('gray')
+  },
+  {
+    facelets: ['U3', 'U6', 'U8', 'U5'],
+    extendStart: -0.2,
+    extendEnd: 0.3,
+    marker: 'end',
+    color: Color('gray')
+  }
 ]
 
 const svg = new TidyCube({
@@ -180,10 +191,12 @@ const svg = new TidyCube({
       B: '#00CC44'
     }
   })
-  .setFaceletsByScheme('DUU _UU BBB')
+  .setFaceletsByScheme('DUU _UU BBU')
   .setFaceletByColor('F6', 'skyblue')
   .renderXml({
     rotations: rots,
-    execution: 'R'
+    execution: 'R',
+    view: 'plan',
+    arrows
   })
 writeFileSync('test.svg', prettifyXml(svg))

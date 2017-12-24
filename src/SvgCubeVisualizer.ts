@@ -1,6 +1,6 @@
 import SvgBuilder, { HandySVGSVGElement, HandySVGElement } from './SvgBuilder'
 import { Rotation, midPoint, angleBetween, Point2 } from './Geometry'
-import { GeometricCube, GeometricLastLayer, Face, Facelet, GeometricArrow, RoundedVertex } from './GeometricCube'
+import { GeometricCube, GeometricLastLayer, Face, FaceletName, GeometricArrow, RoundedVertex } from './GeometricCube'
 import * as Color from 'color'
 
 class Rectangle {
@@ -15,11 +15,13 @@ class Rectangle {
   }
 }
 
-export type Arrow = [
-  GeometricArrow,
-  'none' | 'start' | 'end' | 'both',
-  Color
-]
+export interface Arrow {
+  facelets: string[],
+  marker: 'none' | 'start' | 'end' | 'both',
+  extendStart: number,
+  extendEnd: number,
+  color: Color
+}
 
 export default class SvgCubeVisualizer {
   private cube: GeometricCube | GeometricLastLayer
@@ -35,10 +37,12 @@ export default class SvgCubeVisualizer {
     imageSize: number,
     backgroundColor: Color | undefined,
     cubeColor: Color,
-    faceletColors: Color[][][],
+    faceletColors: Color[],
     arrows: Arrow[]
   ): HandySVGSVGElement {
-    this.cube = view === 'normal' ?
+    this.view = view
+
+    this.cube = this.view === 'normal' ?
       new GeometricCube(this.dimension) :
       new GeometricLastLayer(this.dimension)
 
@@ -106,20 +110,18 @@ export default class SvgCubeVisualizer {
     return svg
   }
 
-  private createFace (face: Face, distance: number, faceletColors: Color[][][]): HandySVGElement {
+  private createFace (face: Face, distance: number, faceletColors: Color[]): HandySVGElement {
     const polygons = []
-    let j =
+    let count =
       this.view === 'plan' && face !== Face.U && face !== Face.D ?
-      this.dimension - 1 : 0
-    for (; j < this.dimension; j++) {
-      for (let i = 0; i < this.dimension; i ++) {
-        polygons.push(this.createFacelet([face, i, j], distance, faceletColors[face][i][j]))
-      }
+      this.dimension : this.dimension * this.dimension
+    for (let i = 0; i < count; i ++) {
+      polygons.push(this.createFacelet(Face[face] + i, distance, faceletColors[face * this.dimension * this.dimension + i]))
     }
     return SvgBuilder.element('g').addClass('face').append(...polygons)
   }
 
-  private createFacelet (facelet: Facelet, distance: number, color: Color): HandySVGElement {
+  private createFacelet (facelet: FaceletName, distance: number, color: Color): HandySVGElement {
     const points = this.cube.getSticker(facelet)
       .map(p => p.to2dString(distance)).join(' ')
     return SvgBuilder.element('polygon')
@@ -148,7 +150,7 @@ export default class SvgCubeVisualizer {
   private createArrowMarker (arrows: Arrow[]): HandySVGElement[] {
     const markers: HandySVGElement[] = []
     for (let i = 0; i < arrows.length; i++) {
-      const [, head, color] = arrows[i]
+      const { marker, color } = arrows[i]
       const arrowStart = SvgBuilder.element('marker').attributes({
         id: 'arrowStart' + i,
         refX: 2.3383 - 0.8,
@@ -171,10 +173,10 @@ export default class SvgCubeVisualizer {
           opacity: color.alpha(),
           points: '0,0 2.3383,1.35 0,2.7'
         }))
-      if (head === 'start' || head === 'both') {
+      if (marker === 'start' || marker === 'both') {
         markers.push(arrowStart)
       }
-      if (head === 'end' || head === 'both') {
+      if (marker === 'end' || marker === 'both') {
         markers.push(arrowEnd)
       }
     }
@@ -182,7 +184,11 @@ export default class SvgCubeVisualizer {
   }
 
   private createArrow (arrow: Arrow, i: number, distance: number): HandySVGElement {
-    const [geometricArrow, head, color] = arrow
+    const { facelets, extendStart, extendEnd, marker, color } = arrow
+    const geometricArrow: GeometricArrow = {
+      facelets,
+      extendStart, extendEnd
+    }
     const vertices = this.cube.arrow(geometricArrow)
     const data = composePolyline(vertices, distance)
 
@@ -197,11 +203,11 @@ export default class SvgCubeVisualizer {
         'stroke-linejoin': 'round',
         d: data.join(' ')
       })
-    if (head === 'start') {
+    if (marker === 'start') {
       arrowElem.attributes({ 'marker-start': `url(#arrowStart${i})` })
-    } else if (head === 'end') {
+    } else if (marker === 'end') {
       arrowElem.attributes({ 'marker-end': `url(#arrowEnd${i})` })
-    } else if (head === 'both') {
+    } else if (marker === 'both') {
       arrowElem.attributes({
         'marker-start': `url(#arrowStart${i})`,
         'marker-end': `url(#arrowEnd${i})`
