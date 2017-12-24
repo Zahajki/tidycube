@@ -1,10 +1,13 @@
+import { Face, FaceletName, parseFaceletName } from './GeometricCube'
 import SvgCubeVisualizer, { Arrow } from './SvgCubeVisualizer'
 import { Rotation } from './Geometry'
 import { TurnableCube } from './TurnableCube'
+const normalize: (s: string, o: object) => string = require('cube-notation-normalizer')
 import * as Color from 'color'
 import fill = require('lodash/fill')
 import flatten = require('lodash/flatten')
 import assign = require('lodash/assign')
+import range = require('lodash/range')
 
 const prettifyXml: (input: string, options?: {indent: number, newline: string}) => string = require('prettify-xml')
 import { writeFileSync } from 'fs'
@@ -16,7 +19,8 @@ export type Stage =
 'fl' | 'f2l' | 'f2l_3' | 'f2l_2' | 'f2l_sm' | 'f2l_1' |
 'll' | 'cll' | 'ell' | 'oll' | 'ocll' | 'oell' | 'coll' | 'ocell' |
 'wv' | 'vh' | 'els' | 'cls' | 'cmll' | 'cross' | 'f2b' | 'line' |
-'2x2x2' | '2x2x3'
+'2x2x2' | '2x2x3' |
+'none'
 
 export interface ConstructorOptions {
   layerCount?: number,
@@ -38,6 +42,13 @@ export interface RenderOptions {
   distance?: number,
   arrows?: Arrow[],
   defaultArrowColor?: Color
+}
+
+const StageMask: { [s: string]: (f: FaceletName, d: number) => boolean } = {
+  'fl': (faceletName: FaceletName, dimension: number): boolean => {
+    const [face, i, j] = parseFaceletName(faceletName, dimension)
+    return face !== Face.U && (face === Face.D || j === 0)
+  }
 }
 
 export default class TidyCube {
@@ -68,7 +79,22 @@ export default class TidyCube {
     this.faceletsColor = flatten(colors)
   }
 
-  setFaceletsByMask (stage: Stage, rotation: string): this {
+  setFaceletsByMask (stage: Stage, rotation: string = ''): this {
+    const cube = new TurnableCube()
+    const alg = normalize(rotation, {
+      separator: '',
+      useModifiers: false,
+      uniformCenterMoves: 'slice'
+    }).split('')
+    cube.move(...alg)
+    range(6 * this.dimension * this.dimension).forEach(num => {
+      const [orgFace, orgSubNum] = this.serialNumberToName(num)
+      const [rotFace, rotSubNum] = this.serialNumberToName(cube.facelets()[num])
+      if (!StageMask[stage](rotFace + rotSubNum, this.dimension)) {
+        const color = Color(this.colorScheme['_'])
+        this.setFaceletByColor(orgFace + orgSubNum, color)
+      }
+    })
     return this
   }
 
@@ -118,23 +144,6 @@ export default class TidyCube {
     return elem.xml
   }
 
-  // private structFacelets<T> (flat: T[]): T[][][] {
-  //   const result = [] as T[][][]
-  //   for (let face = 0; face < 6; face++) {
-  //     result[face] = []
-  //     for (let i = 0; i < 6; i++) {
-  //       result[face][i] = []
-  //       for (let j = 0; j < 6; j++) {
-  //         const index = face * this.dimension * this.dimension +
-  //         i +
-  //         (this.dimension - 1 - j) * this.dimension
-  //         result[face][i][j] = flat[index]
-  //       }
-  //     }
-  //   }
-  //   return result
-  // }
-
   private parseFaceletId (faceletId: string): number {
     const match = faceletId.match(/^([URFDLB])([0-9]+)/)
     if (match !== null && 2 < match.length) {
@@ -148,20 +157,18 @@ export default class TidyCube {
     }
   }
 
-  // private structArrow (arrowParam: ArrowParam): SvgArrow {
-  //   if (typeof arrowParam[0] === 'string') {
-  //     return arrowParam.map(faceletId => this.parseFaceletId(faceletId))
-  //   }
-  //   return
-  // }
+  private serialNumberToName (serialNumber: number): [string, number] {
+    const sq = this.dimension * this.dimension
+    return [Face[Math.floor(serialNumber / sq)], serialNumber % sq]
+  }
 }
 
 //
 // temp test
 //
-const rots: Rotation[] = [
+const rotations: Rotation[] = [
   ['y', 30],
-  ['x', -25]
+  ['x', 25]
 ]
 
 const arrows: Arrow[] = [
@@ -193,10 +200,11 @@ const svg = new TidyCube({
   })
   .setFaceletsByScheme('DUU _UU BBU')
   .setFaceletByColor('F6', 'skyblue')
+  .setFaceletsByMask('fl', 'x')
   .renderXml({
-    rotations: rots,
+    rotations,
     execution: 'R',
-    view: 'plan',
+    // view: 'plan',
     arrows
   })
 writeFileSync('test.svg', prettifyXml(svg))

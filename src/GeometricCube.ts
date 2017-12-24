@@ -36,6 +36,16 @@ export const rotationOntoFace: { [f: number]: Rotation[] } = {
   5 /* B */: [['y', 180]]
 }
 
+export function parseFaceletName (faceletName: FaceletName, dimension: number): [Face, number, number] {
+  const match = faceletName.match(/^([URFDLB])([0-9]+)/)
+  if (match === null || match.length < 3) throw new Error()
+  const face = Face[match[1] as keyof typeof Face]
+  const num = parseInt(match[2], 10)
+  const i = num % dimension
+  const j = dimension - Math.ceil((num + 1) / dimension)
+  return [face, i, j]
+}
+
 //
 // base class
 //
@@ -49,7 +59,7 @@ export abstract class GeometricCubeBase {
   }
 
   getSticker (faceletName: FaceletName): Point[] {
-    const [face, i, j] = this.parseFaceletName(faceletName)
+    const [face, i, j] = parseFaceletName(faceletName, this.dimension)
     const sticker: [Point2, Point2, Point2, Point2] = [
       // align margined square on F face, bottom-left most facelet
       [STICKER_MARGIN + i, STICKER_MARGIN + j],
@@ -121,18 +131,8 @@ export abstract class GeometricCubeBase {
   }
 
   private getUnrotatedStickerCenter (faceletName: FaceletName): Point {
-    const [face, i , j] = this.parseFaceletName(faceletName)
+    const [face, i , j] = parseFaceletName(faceletName, this.dimension)
     return this.alignToFace(face, [0.5 + i, 0.5 + j])
-  }
-
-  private parseFaceletName (faceletName: FaceletName): [Face, number, number] {
-    const match = faceletName.match(/^([URFDLB])([0-9]+)/)
-    if (match === null || match.length < 3) throw new Error()
-    const face = Face[match[1] as keyof typeof Face]
-    const num = parseInt(match[2], 10)
-    const i = num % this.dimension
-    const j = this.dimension - Math.ceil((num + 1) / this.dimension)
-    return [face, i, j]
   }
 }
 
