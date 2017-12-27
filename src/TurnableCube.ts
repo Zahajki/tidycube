@@ -5,6 +5,7 @@
 //
 import range = require('lodash/range')
 import fill = require('lodash/fill')
+import normalize = require('cube-notation-normalizer')
 
 const [U, R, F, D, L, B] = range(6)
 const [URF, UFL, ULB, UBR, DFR, DLF, DBL, DRB] = range(8)
@@ -30,7 +31,7 @@ export interface CubeState {
   eo: number[]
 }
 
-const Moves: { [move: string]: CubeState } = {
+const Moves: { [face: string]: CubeState } = {
   U: {
     ce: range(6),
     cp: [UBR, URF, UFL, ULB, DFR, DLF, DBL, DRB],
@@ -133,8 +134,15 @@ export class TurnableCube implements CubeState {
     return result
   }
 
-  move (...moves: string[]): this {
-    moves.forEach(move => this.multiply(Moves[move]))
+  move (algorithm: string, invert: boolean = false): this {
+    normalize(algorithm, {
+      separator: '',
+      useModifiers: false,
+      uniformCenterMoves: 'slice',
+      invert
+    })
+      .split('')
+      .forEach(face => this.multiply(Moves[face]))
     return this
   }
 

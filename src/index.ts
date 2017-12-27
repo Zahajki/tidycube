@@ -1,15 +1,13 @@
-import { Face, FaceletName, parseFaceletName } from './GeometricCube'
-import SvgCubeVisualizer, { Arrow } from './SvgCubeVisualizer'
+import { Face, Facelet } from './GeometricCube'
+import SvgCubeVisualizer, { RenderingArrow } from './SvgCubeVisualizer'
 import { Rotation } from './Geometry'
 import { TurnableCube } from './TurnableCube'
-const normalize: (s: string, o: object) => string = require('cube-notation-normalizer')
 import * as Color from 'color'
 import fill = require('lodash/fill')
 import flatten = require('lodash/flatten')
 import assign = require('lodash/assign')
 import range = require('lodash/range')
 
-const prettifyXml: (input: string, options?: {indent: number, newline: string}) => string = require('prettify-xml')
 import { writeFileSync } from 'fs'
 
 // https://github.com/DefinitelyTyped/DefinitelyTyped/blob/master/types/color/index.d.ts
@@ -22,31 +20,37 @@ export type Stage =
 '2x2x2' | '2x2x3' |
 'none'
 
+export type FaceletName = string
+
+export interface Arrow {
+  facelets: FaceletName[]
+  marker?: 'none' | 'start' | 'end' | 'both'
+  extendStart?: number
+  extendEnd?: number
+  color?: ColorParam
+}
+
 export interface ConstructorOptions {
   layerCount?: number,
   colorScheme?: { [name: string]: ColorParam }
 }
 
-// stage: Stage,
-// faceletColors: { 'U': Color[], 'R': Color[], 'F': Color[], 'D': Color[], 'L': Color[], 'B': Color[] },
-// faceletDefinition: any
-
 export interface RenderOptions {
   imageSize?: number,
+  distance?: number,
   view?: 'normal' | 'plan',
   rotations?: Rotation[],
   execution?: string,
   solution?: string,
   backgroundColor?: Color | undefined,
   bodyColor?: Color,
-  distance?: number,
   arrows?: Arrow[],
   defaultArrowColor?: Color
 }
 
 const StageMask: { [s: string]: (f: FaceletName, d: number) => boolean } = {
   'fl': (faceletName: FaceletName, dimension: number): boolean => {
-    const [face, i, j] = parseFaceletName(faceletName, dimension)
+    const [face, , j] = faceletNameToTriplet(faceletName, dimension)
     return face !== Face.U && (face === Face.D || j === 0)
   }
 }
@@ -81,46 +85,43 @@ export default class TidyCube {
 
   setFaceletsByMask (stage: Stage, rotation: string = ''): this {
     const cube = new TurnableCube()
-    const alg = normalize(rotation, {
-      separator: '',
-      useModifiers: false,
-      uniformCenterMoves: 'slice'
-    }).split('')
-    cube.move(...alg)
+    cube.move(rotation)
     range(6 * this.dimension * this.dimension).forEach(num => {
-      const [orgFace, orgSubNum] = this.serialNumberToName(num)
-      const [rotFace, rotSubNum] = this.serialNumberToName(cube.facelets()[num])
-      if (!StageMask[stage](rotFace + rotSubNum, this.dimension)) {
+      const originalName = this.faceletIndexToName(num)
+      const rotatedName = this.faceletIndexToName(cube.facelets()[num])
+      if (!StageMask[stage](rotatedName, this.dimension)) {
         const color = Color(this.colorScheme['_'])
-        this.setFaceletByColor(orgFace + orgSubNum, color)
+        this.setFaceletByColor(originalName, color)
       }
     })
     return this
   }
 
-  setFaceletsByScheme (scheme: string): this {
-    scheme.replace(/\s/g, '').split('').forEach((colorName, index) => {
-      this.faceletsColor[index] = Color(this.colorScheme[colorName])
+  setFaceletsByDefinition (definition: string): this {
+    definition.replace(/\s/g, '').split('').forEach((colorName, index) => {
+      if (this.colorScheme[colorName]) {
+        this.faceletsColor[index] = Color(this.colorScheme[colorName])
+      }
     })
     return this
   }
 
-  setFaceletByColor (faceletId: string, color: ColorParam): this {
-    const faceletNumber = this.parseFaceletId(faceletId)
-    this.faceletsColor[faceletNumber] = Color(color)
+  setFaceletByColor (faceletName: FaceletName, color: ColorParam): this {
+    const faceletIndex = this.faceletNameToIndex(faceletName)
+    this.faceletsColor[faceletIndex] = Color(color)
     return this
   }
 
-  renderXml ({
+  renderSvgXml ({
     imageSize= 128,
+    distance= 5,
     view= 'normal',
     rotations= [['y', 45], ['x', -34]],
     execution= '',
     solution= '',
     backgroundColor= undefined,
     bodyColor= '#000000',
-    distance= 5,
-    arrows= [],
+    arrows= [] as Arrow[],
     defaultArrowColor= '#808080'
   }: RenderOptions = {}): string {
     const visualizer = new SvgCubeVisualizer(this.dimension)
@@ -128,8 +129,18 @@ export default class TidyCube {
     const geometricRotations = rotations.map(rot => [rot[0], -rot[1]] as Rotation)
 
     const cube = new TurnableCube()
-    cube.move(execution)
+    cube.move(solution, true).move(execution)
     const faceletsColor = cube.facelets().map(facelet => this.faceletsColor[facelet])
+
+    const renderingArrows: RenderingArrow[] = arrows.map(arrow => {
+      return {
+        facelets: arrow.facelets.map(name => faceletNameToTriplet(name, this.dimension)),
+        marker: arrow.marker === undefined ? 'end' : arrow.marker,
+        extendStart: arrow.extendStart === undefined ? 0 : arrow.extendStart,
+        extendEnd: arrow.extendEnd === undefined ? 0 : arrow.extendEnd,
+        color: arrow.color === undefined ? Color(defaultArrowColor) : Color(arrow.color)
+      }
+    })
 
     const elem = visualizer.visualize(
       view,
@@ -138,13 +149,30 @@ export default class TidyCube {
       imageSize,
       backgroundColor ? Color(backgroundColor) : backgroundColor,
       Color(bodyColor),
-      faceletsColor,
-      arrows
+      this.structFacelets(faceletsColor),
+      renderingArrows
     )
     return elem.xml
   }
 
-  private parseFaceletId (faceletId: string): number {
+  private structFacelets<T> (flat: T[]): T[][][] {
+    const result = [] as T[][][]
+    for (let face = 0; face < 6; face++) {
+      result[face] = []
+      for (let i = 0; i < 6; i++) {
+        result[face][i] = []
+        for (let j = 0; j < 6; j++) {
+          const index = face * this.dimension * this.dimension +
+          i +
+          (this.dimension - 1 - j) * this.dimension
+          result[face][i][j] = flat[index]
+        }
+      }
+    }
+    return result
+  }
+
+  private faceletNameToIndex (faceletId: string): number {
     const match = faceletId.match(/^([URFDLB])([0-9]+)/)
     if (match !== null && 2 < match.length) {
       const [, face, numberInFace] = match
@@ -157,10 +185,20 @@ export default class TidyCube {
     }
   }
 
-  private serialNumberToName (serialNumber: number): [string, number] {
+  private faceletIndexToName (serialNumber: number): FaceletName {
     const sq = this.dimension * this.dimension
-    return [Face[Math.floor(serialNumber / sq)], serialNumber % sq]
+    return Face[Math.floor(serialNumber / sq)] + (serialNumber % sq)
   }
+}
+
+function faceletNameToTriplet (faceletName: FaceletName, dimension: number): Facelet {
+  const match = faceletName.match(/^([URFDLB])([0-9]+)/)
+  if (match === null || match.length < 3) throw new Error('Invalid facelet name ' + faceletName)
+  const face = Face[match[1] as keyof typeof Face]
+  const num = parseInt(match[2], 10)
+  const i = num % dimension
+  const j = dimension - Math.ceil((num + 1) / dimension)
+  return [face, i, j]
 }
 
 //
@@ -182,7 +220,7 @@ const arrows: Arrow[] = [
   {
     facelets: ['U3', 'U6', 'U8', 'U5'],
     extendStart: -0.2,
-    extendEnd: 0.3,
+    // extendEnd: 0.3,
     marker: 'end',
     color: Color('gray')
   }
@@ -198,13 +236,14 @@ const svg = new TidyCube({
       B: '#00CC44'
     }
   })
-  .setFaceletsByScheme('DUU _UU BBU')
+  .setFaceletsByDefinition('DUU _UU BBU')
   .setFaceletByColor('F6', 'skyblue')
   .setFaceletsByMask('fl', 'x')
-  .renderXml({
+  .renderSvgXml({
+    imageSize: 512,
     rotations,
     execution: 'R',
     // view: 'plan',
     arrows
   })
-writeFileSync('test.svg', prettifyXml(svg))
+writeFileSync('test.svg', svg)

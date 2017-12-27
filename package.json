@@ -26,18 +26,17 @@
   "devDependencies": {
     "@types/color": "^2.0.0",
     "@types/jsdom": "^11.0.4",
-    "@types/lodash": "^4.14.86",
+    "@types/lodash": "^4.14.91",
     "tslint": "^5.8.0",
     "tslint-config-standard": "^7.0.0",
     "typescript": "^2.6.2"
   },
   "dependencies": {
     "color": "^2.0.1",
-    "cube-notation-normalizer": "^0.1.0",
+    "cube-notation-normalizer": "^1.0.0",
     "jsdom": "^11.5.1",
     "lodash": "^4.17.4",
-    "monotone-convex-hull-2d": "^1.0.1",
-    "prettify-xml": "^1.2.0"
+    "monotone-convex-hull-2d": "^1.0.1"
   },
   "browser": {
     "jsdom": false

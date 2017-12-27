@@ -1,6 +1,6 @@
 import SvgBuilder, { HandySVGSVGElement, HandySVGElement } from './SvgBuilder'
 import { Rotation, midPoint, angleBetween, Point2 } from './Geometry'
-import { GeometricCube, GeometricLastLayer, Face, FaceletName, GeometricArrow, RoundedVertex } from './GeometricCube'
+import { GeometricCube, GeometricLastLayer, Face, Facelet, GeometricArrow, RoundedVertex } from './GeometricCube'
 import * as Color from 'color'
 
 class Rectangle {
@@ -15,8 +15,8 @@ class Rectangle {
   }
 }
 
-export interface Arrow {
-  facelets: string[],
+export interface RenderingArrow {
+  facelets: Facelet[],
   marker: 'none' | 'start' | 'end' | 'both',
   extendStart: number,
   extendEnd: number,
@@ -37,8 +37,8 @@ export default class SvgCubeVisualizer {
     imageSize: number,
     backgroundColor: Color | undefined,
     cubeColor: Color,
-    faceletColors: Color[],
-    arrows: Arrow[]
+    faceletColors: Color[][][],
+    arrows: RenderingArrow[]
   ): HandySVGSVGElement {
     this.view = view
 
@@ -84,7 +84,7 @@ export default class SvgCubeVisualizer {
 
     // backside facelets
     for (let f = 0; f < 6; f++) {
-      if (!this.cube.facingFront(f, distance) && this.view === 'normal') {
+      if (!this.cube.isFacingFront(f, distance) && this.view === 'normal') {
         container.append(this.createFace(f, distance, faceletColors))
       }
     }
@@ -94,7 +94,7 @@ export default class SvgCubeVisualizer {
 
     // foreside facelets
     for (let f = 0; f < 6; f++) {
-      if (this.cube.facingFront(f, distance)) {
+      if (this.cube.isFacingFront(f, distance)) {
         container.append(this.createFace(f, distance, faceletColors))
       }
     }
@@ -110,18 +110,20 @@ export default class SvgCubeVisualizer {
     return svg
   }
 
-  private createFace (face: Face, distance: number, faceletColors: Color[]): HandySVGElement {
+  private createFace (face: Face, distance: number, faceletColors: Color[][][]): HandySVGElement {
     const polygons = []
-    let count =
+    let jStart =
       this.view === 'plan' && face !== Face.U && face !== Face.D ?
-      this.dimension : this.dimension * this.dimension
-    for (let i = 0; i < count; i ++) {
-      polygons.push(this.createFacelet(Face[face] + i, distance, faceletColors[face * this.dimension * this.dimension + i]))
+      this.dimension - 1 : 0
+    for (let i = 0; i < this.dimension; i ++) {
+      for (let j = jStart; j < this.dimension; j++) {
+        polygons.push(this.createFacelet([face, i, j], distance, faceletColors[face][i][j]))
+      }
     }
     return SvgBuilder.element('g').addClass('face').append(...polygons)
   }
 
-  private createFacelet (facelet: FaceletName, distance: number, color: Color): HandySVGElement {
+  private createFacelet (facelet: Facelet, distance: number, color: Color): HandySVGElement {
     const points = this.cube.getSticker(facelet)
       .map(p => p.to2dString(distance)).join(' ')
     return SvgBuilder.element('polygon')
@@ -147,7 +149,7 @@ export default class SvgCubeVisualizer {
       })
   }
 
-  private createArrowMarker (arrows: Arrow[]): HandySVGElement[] {
+  private createArrowMarker (arrows: RenderingArrow[]): HandySVGElement[] {
     const markers: HandySVGElement[] = []
     for (let i = 0; i < arrows.length; i++) {
       const { marker, color } = arrows[i]
@@ -183,13 +185,13 @@ export default class SvgCubeVisualizer {
     return markers
   }
 
-  private createArrow (arrow: Arrow, i: number, distance: number): HandySVGElement {
+  private createArrow (arrow: RenderingArrow, i: number, distance: number): HandySVGElement {
     const { facelets, extendStart, extendEnd, marker, color } = arrow
     const geometricArrow: GeometricArrow = {
       facelets,
       extendStart, extendEnd
     }
-    const vertices = this.cube.arrow(geometricArrow)
+    const vertices = this.cube.getArrow(geometricArrow)
     const data = composePolyline(vertices, distance)
 
     const arrowElem = SvgBuilder.element('path')
@@ -200,7 +202,6 @@ export default class SvgCubeVisualizer {
         'stroke-opacity': color.alpha(),
         'stroke-width': 0.12,
         'stroke-linecap': 'round',
-        'stroke-linejoin': 'round',
         d: data.join(' ')
       })
     if (marker === 'start') {

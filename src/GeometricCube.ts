@@ -13,7 +13,7 @@ export enum Face {
   U = 0, R, F, D, L, B
 }
 
-export type FaceletName = string
+export type Facelet = [Face, number, number]
 
 export interface RoundedVertex {
   vertex: Point
@@ -21,9 +21,9 @@ export interface RoundedVertex {
   nextCutoff: number
 }
 
-export type GeometricArrow = {
-  facelets: FaceletName[],
-  extendStart: number,
+export interface GeometricArrow {
+  facelets: Facelet[]
+  extendStart: number
   extendEnd: number
 }
 
@@ -34,16 +34,6 @@ export const rotationOntoFace: { [f: number]: Rotation[] } = {
   3 /* D */: [['x', 90]],
   4 /* L */: [['y', -90]],
   5 /* B */: [['y', 180]]
-}
-
-export function parseFaceletName (faceletName: FaceletName, dimension: number): [Face, number, number] {
-  const match = faceletName.match(/^([URFDLB])([0-9]+)/)
-  if (match === null || match.length < 3) throw new Error()
-  const face = Face[match[1] as keyof typeof Face]
-  const num = parseInt(match[2], 10)
-  const i = num % dimension
-  const j = dimension - Math.ceil((num + 1) / dimension)
-  return [face, i, j]
 }
 
 //
@@ -58,8 +48,8 @@ export abstract class GeometricCubeBase {
     this.rotations.push(...rotations)
   }
 
-  getSticker (faceletName: FaceletName): Point[] {
-    const [face, i, j] = parseFaceletName(faceletName, this.dimension)
+  getSticker (facelet: Facelet): Point[] {
+    const [face, i, j] = facelet
     const sticker: [Point2, Point2, Point2, Point2] = [
       // align margined square on F face, bottom-left most facelet
       [STICKER_MARGIN + i, STICKER_MARGIN + j],
@@ -72,8 +62,8 @@ export abstract class GeometricCubeBase {
         .rotate(...this.rotations))
   }
 
-  facingFront (face: Face, distance: number): boolean {
-    const sticker = this.getSticker(Face[face] + '0')
+  isFacingFront (face: Face, distance: number): boolean {
+    const sticker = this.getSticker([face, 0, 0])
     const lineS = sticker[0].project(distance)
     const lineE = sticker[1].project(distance)
     const point = sticker[2].project(distance)
@@ -82,7 +72,7 @@ export abstract class GeometricCubeBase {
 
   abstract silhouette (distance: number): RoundedVertex[]
 
-  arrow (arrow: GeometricArrow): RoundedVertex[] {
+  getArrow (arrow: GeometricArrow): RoundedVertex[] {
     const vertices: RoundedVertex[] = []
     const { facelets, extendStart, extendEnd } = arrow
     for (let i = 0; i < facelets.length; i++) {
@@ -110,12 +100,12 @@ export abstract class GeometricCubeBase {
       .rotate(...rotationOntoFace[face])
   }
 
-  private getStickerCenter (facelet: FaceletName): Point {
+  private getStickerCenter (facelet: Facelet): Point {
     return this.getUnrotatedStickerCenter(facelet)
       .rotate(...this.rotations)
   }
 
-  private bentPoint (facelet1: FaceletName, facelet2: FaceletName): Point {
+  private bentPoint (facelet1: Facelet, facelet2: Facelet): Point {
     const p1 = this.getUnrotatedStickerCenter(facelet1)
     const p2 = this.getUnrotatedStickerCenter(facelet2)
     const s = p1.axisOfMaxAbs()
@@ -130,8 +120,8 @@ export abstract class GeometricCubeBase {
     return p.rotate(...this.rotations)
   }
 
-  private getUnrotatedStickerCenter (faceletName: FaceletName): Point {
-    const [face, i , j] = parseFaceletName(faceletName, this.dimension)
+  private getUnrotatedStickerCenter (facelet: Facelet): Point {
+    const [face, i , j] = facelet
     return this.alignToFace(face, [0.5 + i, 0.5 + j])
   }
 }
