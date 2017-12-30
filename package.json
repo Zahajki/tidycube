@@ -1,5 +1,5 @@
 {
-  "name": "visualcube",
+  "name": "tidycube",
   "version": "0.0.0",
   "description": "A JavaScript library for generating Rubik's Cube visualisations",
   "main": "dist/index.js",
@@ -12,7 +12,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Zahajki/visualcube-js.git"
+    "url": "git+https://github.com/Zahajki/tidycube.git"
   },
   "keywords": [
     "rubik's cube"
@@ -20,9 +20,9 @@
   "author": "Zahajki",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Zahajki/visualcube-js/issues"
+    "url": "https://github.com/Zahajki/tidycube/issues"
   },
-  "homepage": "https://github.com/Zahajki/visualcube-js#readme",
+  "homepage": "https://github.com/Zahajki/tidycube#readme",
   "devDependencies": {
     "@types/color": "^2.0.0",
     "@types/jsdom": "^11.0.4",
