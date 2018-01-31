@@ -1,5 +1,4 @@
-import { Face, Facelet } from './GeometricCube'
-import { FaceletName } from './index'
+import { Face } from './GeometricCube'
 import some = require('lodash/some')
 
 export const StageMask: { [s: string]: (face: Face, i: number, j: number, d: number) => boolean } = {
@@ -42,7 +41,6 @@ export const StageMask: { [s: string]: (face: Face, i: number, j: number, d: num
     if (face === Face.R || face === Face.L) return i !== dimension - 1
     if (face === Face.D) {
       return !some([[0, dimension - 1], [dimension - 1, 0]], (point2) => {
-        const [i2, j2] = point2
         return i === point2[0] && j === point2[1]
       })
     }
@@ -61,7 +59,6 @@ export const StageMask: { [s: string]: (face: Face, i: number, j: number, d: num
     if (!StageMask.f2l(face, i, j, dimension)) return false
     if (isSideFace(face)) return !isSideMost(i, dimension)
     return !some([[0, 0], [0, dimension - 1], [dimension - 1, 0], [dimension - 1, dimension - 1]], (point2) => {
-      const [i2, j2] = point2
       return i === point2[0] && j === point2[1]
     })
   },

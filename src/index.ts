@@ -78,16 +78,16 @@ export default class TidyCube {
   setFaceletsByMask (stage: Stage, rotation: string = ''): this {
     const cube = new TurnableCube()
     cube.move(rotation)
+    const color = Color(this.colorScheme['_'])
     range(6).forEach(face => {
       range(this.dimension).forEach(i => {
         range(this.dimension).forEach(j => {
-          const index = face * this.dimension * this.dimension +
-            i +
-            (this.dimension - j - 1) * this.dimension
-          const rotatedName = this.faceletIndexToName(cube.facelets()[index])
           if (!StageMask[stage](face, i, j, this.dimension)) {
-            const color = Color(this.colorScheme['_'])
-            this.setFaceletByColor(this.faceletIndexToName(index), color)
+            const index = face * this.dimension * this.dimension +
+              i +
+              (this.dimension - j - 1) * this.dimension
+            const rotatedIndex = cube.facelets().indexOf(index)
+            this.setFaceletByColor(this.faceletIndexToName(rotatedIndex), color)
           }
         })
       })
@@ -110,6 +110,10 @@ export default class TidyCube {
     return this
   }
 
+  setSchema (schema: { [name: string]: ColorParam }, definition: string = ''): this {
+    return this
+  }
+
   renderSvgXml ({
     imageSize= 128,
     distance= 5,
@@ -128,7 +132,9 @@ export default class TidyCube {
 
     const cube = new TurnableCube()
     cube.move(solution, true).move(execution)
-    const faceletsColor = cube.facelets().map(facelet => this.faceletsColor[facelet])
+    const faceletsColor = this.dimension === 3 ?
+      cube.facelets().map(facelet => this.faceletsColor[facelet]) :
+      this.faceletsColor
 
     const renderingArrows: RenderingArrow[] = arrows.map((arrow) => {
       return {
@@ -157,9 +163,9 @@ export default class TidyCube {
     const result = [] as T[][][]
     for (let face = 0; face < 6; face++) {
       result[face] = []
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < this.dimension; i++) {
         result[face][i] = []
-        for (let j = 0; j < 6; j++) {
+        for (let j = 0; j < this.dimension; j++) {
           const index = face * this.dimension * this.dimension +
             i +
             (this.dimension - 1 - j) * this.dimension
